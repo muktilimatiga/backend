@@ -1,76 +1,75 @@
-# IP prefix for each network type
-IP_PREFIX = {
-    "ATN": "10.254.252",   # Always Huawei
-    "COLO": "10.254.254",  # Could be Huawei or Cisco
-}
+# Switch configs by full IP address
+# Each entry: {type, username, password}
 
-# Location configs with their last IP octet and device type per network
 SWITCH_CONFIG = {
-    # Location: { ip_octet, device_type per network }
-    "BOYOLANGU": {"ip": 1, "is_huawei": True},
-    "BEJI": {"ip": 9, "is_huawei": True},
-    "DURENAN": {"ip": 5, "is_huawei": True},
-    "KALIDAWIR": {"ip": 3, "is_huawei": True},
-    "KAUMAN": {"ip": 4, "is_huawei": True},
-    "KEDIRI": {"ip": 8, "is_huawei": True},
-    "CAMPUR BARU": {"ip": 15, "is_huawei": True},
-    "BLITAR": {"ip": 2, "is_huawei": True},
-    "GANDUSARI": {"ip": 11, "is_huawei": True},
+    # JKT switches (192.168.116.x)
+    "192.168.116.113": {"type": "cisco", "username": "noclex", "password": "noclx@1965"},
+    "192.168.116.114": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "192.168.116.115": {"type": "cisco", "username": "noclx", "password": "noclx@1971"},
+    "192.168.116.116": {"type": "huawei", "username": "noclex", "password": "Noclx#1967!"},
+    "192.168.116.117": {"type": "huawei", "username": "noclex", "password": "Noclx#1967!"},
+    "192.168.116.118": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "192.168.116.119": {"type": "huawei", "username": "noclex", "password": "Noclx#1967!"},
+    
+    # TAG switches (10.254.254.x)
+    "10.254.254.16": {"type": "ruijie", "username": "noclex", "password": "noclx@1965"},
+    "10.254.254.11": {"type": "cisco", "username": "noclex", "password": "noclx@1965"},
+    "10.254.254.19": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.254.13": {"type": "cisco", "username": "monster12", "password": "monster12"},
+    
+    # ATN switches (10.254.252.x)
+    "10.254.252.3": {"type": "cisco", "username": "noclex", "password": "noclx@1965"},
+    "10.254.252.4": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.5": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.8": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.9": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.11": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.12": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
+    "10.254.252.15": {"type": "huawei", "username": "noclex", "password": "Noclx@1965"},
 }
 
 COMMAND_TEMPLATE = {
     "cek_description": {
         "huawei": ["display interface description"],
-        "cisco": ["show interface description"]
+        "cisco": ["show interface description"],
+        "ruijie": ["show interface description"],
     },
     "cek_interface": {
         "huawei": ["display interface {interface}"],
-        "cisco": ["show interface {interface}"]
+        "cisco": ["show interface {interface}"],
+        "ruijie": ["show interface {interface}"],
     }
 }
 
 
-def get_switch_connection(network_type: str, location: str) -> dict | None:
+def get_switch_connection(ip: str) -> dict | None:
     """
-    Get switch connection info.
+    Get switch connection info by IP address.
     
     Args:
-        network_type: "ATN" or "COLO"
-        location: e.g., "BOYOLANGU", "BEJI"
+        ip: Full IP address (e.g., "192.168.116.113")
     
     Returns:
-        {"ip": "10.254.252.1", "is_huawei": True}
-    
-    Example:
-        get_switch_connection("ATN", "BOYOLANGU")
-        -> {"ip": "10.254.252.1", "is_huawei": True}
-        
-        get_switch_connection("COLO", "CAMPUR BARU")  
-        -> {"ip": "10.254.254.7", "is_huawei": True}
+        {
+            "ip": "192.168.116.113",
+            "type": "cisco",
+            "is_huawei": False,
+            "is_ruijie": False,
+            "username": "noclex",
+            "password": "noclx@1965"
+        }
     """
-    network_upper = network_type.upper()
-    location_upper = location.upper()
-    
-    # Get prefix
-    prefix = IP_PREFIX.get(network_upper)
-    if not prefix:
+    switch_config = SWITCH_CONFIG.get(ip)
+    if not switch_config:
         return None
     
-    # Get location config
-    config = SWITCH_CONFIG.get(location_upper)
-    if not config:
-        return None
-    
-    # Build full IP
-    full_ip = f"{prefix}.{config['ip']}"
-    
-    # Determine if Huawei based on network type
-    if network_upper == "ATN":
-        is_huawei = config.get("atn_huawei", True)  # ATN is always Huawei
-    else:  # COLO
-        is_huawei = config.get("colo_huawei", False)
+    device_type = switch_config.get("type", "huawei")
     
     return {
-        "ip": full_ip,
-        "is_huawei": is_huawei
+        "ip": ip,
+        "type": device_type,
+        "is_huawei": device_type == "huawei",
+        "is_ruijie": device_type == "ruijie",
+        "username": switch_config.get("username", ""),
+        "password": switch_config.get("password", ""),
     }

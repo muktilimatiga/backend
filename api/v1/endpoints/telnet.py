@@ -56,22 +56,20 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
         raise HTTPException(status_code=404, detail=f"OLT '{olt_name}' tidak ditemukan.")
         
     try:
-        async with TelnetClient(
+        handler = await olt_manager.get_connection(
             host=olt_info["ip"],
             username=settings.OLT_USERNAME,
             password=settings.OLT_PASSWORD,
             is_c600=olt_info["c600"]
-        ) as handler:
-            logs, summary = await handler.apply_configuration(request, vlan=olt_info["vlan"])
-            logs.append("INFO < Database save functionality not yet implemented.")
+        )
+        logs, summary = await handler.apply_configuration(request, vlan=olt_info["vlan"])
+        logs.append("INFO < Database save functionality not yet implemented.")
             
-            return ConfigurationResponse(
-                message="Konfigurasi berhasil.",
-                summary=ConfigurationSummary(**summary),
-                logs=logs
+        return ConfigurationResponse(
+            message="Konfigurasi berhasil.",
+            summary=ConfigurationSummary(**summary),
+            logs=logs
             )
-
-            # ---
     except (ConnectionError, asyncio.TimeoutError) as e:
         raise HTTPException(status_code=504, detail=f"Gagal terhubung atau timeout saat koneksi ke OLT: {e}")
     except LookupError as e:

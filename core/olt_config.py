@@ -109,5 +109,17 @@ COMMAND_TEMPLATES = {
     "cek_dba": {
         "c300": ["show pon bandwidth dba interface {interface}"],
         "c600": ["show pon bandwidth dba interface {interface}"],
+    },
+    "cek_monitoring": {
+        "c300" : ["show interface {interface}"],
+        "c600" : ["show interface {interface}"]
+    },
+    "cek_rx_monitoring": {
+        "c300" : ["show interface optical-module-info {interface}"],
+        "c600" : ["show interface optical-module-info {interface}"]
+    },
+    "cek_state_olt" : {
+        "c300" : ["show gpon onu state"],
+        "c600" : ["show gpon onu state"]
     }
 }

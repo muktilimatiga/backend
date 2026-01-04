@@ -403,6 +403,20 @@ class TelnetClient:
         except Exception as e:
             logging.error(f"Failed during reboot for {full_interface}: {e}")
             return f"cek 1 port failed: {e}"
+        
+    async def get_olt_state(self) -> str:
+        """
+        Cek state OLT
+        """
+        commands = self._get_action_commands("cek_state_olt")
+
+        try:
+            for cmd in commands:
+                output = await self._execute_command(cmd)
+            return output
+        except Exception as e:
+            logging.error(f"Failed to get OLT state: {e}")
+            return f"cek state olt failed: {e}"
 
     async def get_attenuation(self, interface: str) -> str:
         """
@@ -534,6 +548,110 @@ class TelnetClient:
         except Exception as e:
             logging.error(f"Failed to get DBA for {full_interface}: {e}")
             return ""
+
+    # Cek monitoring & mitra
+
+    @staticmethod
+    def _parse_olt_monitoring(raw_output: str) -> str:
+        """
+        Parse OLT monitoring output to extract interface status and description.
+        
+        Example input:
+            gei_1/19/3 is up,  line protocol is up,  detect status is OK
+              Description is TO-MONITORING-KAUMAN
+              The port negotiation is enable
+              ... (more lines)
+        
+        Returns:
+            First two lines: interface status + description
+        """
+        lines = raw_output.strip().splitlines()
+        
+        if not lines:
+            return ""
+        
+        result_lines = []
+        
+        # First line: interface status (e.g., "gei_1/19/3 is up,  line protocol is up,  detect status is OK")
+        if lines:
+            result_lines.append(lines[0].strip())
+        
+        # Second line: description (e.g., "Description is TO-MONITORING-KAUMAN")
+        if len(lines) > 1:
+            result_lines.append(lines[1].strip())
+        
+        return "\n".join(result_lines)
+
+    @staticmethod
+    def _parse_rx_monitoring(raw_output: str) -> str:
+        """
+        Parse optical module info output to extract Diagnostic-info section.
+        
+        Example input:
+            ...
+            Diagnostic-info:
+             RxPower        : -7.693    (dbm)          TxPower      : -1.850(dbm)
+             TxBias-Current : 6.142     (mA)           Laser-Rate   : 103(100Mb/s)
+             Temperature    : 38.914    (c)            Supply-Vol   : 3.251(v)
+            Alarm-thresh:
+            ...
+        
+        Returns:
+            Diagnostic-info section with header and 3 data lines
+        """
+        lines = raw_output.strip().splitlines()
+        
+        result_lines = []
+        in_diagnostic_section = False
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Start capturing when we hit "Diagnostic-info:"
+            if stripped.startswith("Diagnostic-info"):
+                in_diagnostic_section = True
+                result_lines.append(stripped)
+                continue
+            
+            # Stop capturing when we hit the next section (Alarm-thresh, etc.)
+            if in_diagnostic_section and stripped.endswith(":") and not stripped.startswith("RxPower") and not stripped.startswith("TxBias") and not stripped.startswith("Temperature"):
+                break
+            
+            # Capture lines within Diagnostic-info section
+            if in_diagnostic_section and stripped:
+                result_lines.append(stripped)
+        
+        return "\n".join(result_lines)
+
+    async def get_olt_monitoring(self, interface: str) -> str:
+        """cek interface dari monitroing / mitra """
+        interface = interface
+        commands = self._get_action_commands("cek_monitoring", interface=interface)
+
+        try:
+            for cmd in commands:
+                output = await self._execute_command(cmd)
+            
+            parsed_monitoring = TelnetClient._parse_olt_monitoring(output)
+            return parsed_monitoring
+        except Exception as e:
+            logging.error(f"Failed to get monitoring for {interface}: {e}")
+            return ""
+
+    async def get_rx_monitoring(self, interface:str) -> str:
+        """cek rx monitoring"""
+        interface = interface
+        commands = self._get_action_commands("cek_rx_monitoring", interface=interface)
+
+        try:
+            for cmd in commands:
+                output = await self._execute_command(cmd)
+            
+            parsed_rx_monitoring = TelnetClient._parse_rx_monitoring(output)
+            return parsed_rx_monitoring
+        except Exception as e:
+            logging.error(f"Failed to get rx monitoring for {interface}: {e}")
+            return ""
     
     # Config
 
@@ -604,31 +722,41 @@ class TelnetClient:
         # The command to check bandwidth
         command = f"show pon bandwidth dba interface {interface}"
         
-        # FIX: Increase timeout to 20 seconds because OLT CPU is slow to calculate this
-        # You might need to adjust your _execute_command method to accept a 'timeout' arg
-        # If your class doesn't support it, hardcode the read_until timeout in the class.
         output = await self._execute_command(command) 
         
-        # Debug log to see what the script actually saw (remove later)
+        # Debug log to see what the script actually saw
         logging.info(f"DBA OUTPUT RAW: {output}")
 
-        # Your Regex (It is correct based on your output)
-        if self.is_c600:
-             # C600 usually has an extra column or different spacing, keep as is if tested
-            pattern = rf"{re.escape(interface)}\s+\S+\s+\d+\s+\d+\s+\S*\s*(\d+(?:\.\d+)?)"
-        else:
-            # Matches: interface | channel | config | free | RATE (79.3)
-            pattern = rf"{re.escape(interface)}\s+\S+\s+\d+\s+\d+\s+(\d+(?:\.\d+)?)"
+        # Find all rates from lines containing the interface
+        # Format: interface | channel | configured | free | overflowflag | rate
+        # We want to get the GPON line (usually second line, has "GPON" in it)
+        rate_regex = re.compile(
+            rf"{re.escape(interface)}\s+\S*GPON\S*\s+\d+\s+\d+\s+\S+\s+([\d.]+)",
+            re.IGNORECASE
+        )
         
-        match = re.search(pattern, output)
+        match = rate_regex.search(output)
         
         if match:
             rate_str = match.group(1)
             logging.info(f"DBA Rate found: {rate_str}%")
             return float(rate_str)
-        else:
-            logging.warning(f"Could not parse DBA rate for {interface}. Defaulting to 0.0")
-            return 0.0
+        
+        # Fallback: if GPON regex doesn't match, try to get second rate value
+        fallback_regex = re.compile(
+            rf"{re.escape(interface)}\s+\S+\s+\d+\s+\d+\s+\S+\s+([\d.]+)"
+        )
+        matches = fallback_regex.findall(output)
+        
+        if len(matches) >= 2:
+            logging.info(f"DBA Rate found (fallback): {matches[1]}%")
+            return float(matches[1])
+        elif len(matches) == 1:
+            logging.info(f"DBA Rate found (fallback single): {matches[0]}%")
+            return float(matches[0])
+        
+        logging.warning(f"Could not parse DBA rate for {interface}. Defaulting to 0.0")
+        return 0.0
 
     async def apply_configuration(self, config_request: ConfigurationRequest, vlan: str):
         ont_list = await self.find_unconfigured_onts()
@@ -646,7 +774,9 @@ class TelnetClient:
         base_paket_name = PACKAGE_OPTIONS[config_request.package]
         up_paket = f"{base_paket_name}{up_profile_suffix}"
         down_paket = base_paket_name.replace("MB", "M")
-        olt_profile_type = "F670" if config_request.modem_type == "ZTEG-F670" else "ALL"
+        # Modem type mapping: frontend name -> OLT config name
+        modem_mapping = {"F670L": "ZTEG-F670", "F609": "ZTEG-F609"}
+        olt_profile_type = modem_mapping.get(config_request.modem_type, "ALL")
         
         iface_onu = f"{'gpon_onu-1' if self.is_c600 else 'gpon-onu_1'}/{target_ont.pon_slot}/{target_ont.pon_port}:{onu_id}"
         if self.is_c600:
@@ -707,11 +837,11 @@ class TelnetClient:
             await asyncio.sleep(0.3) 
 
         summary = {
-            "Serial Number": config_request.sn,
-            "ID Pelanggan": config_request.customer.pppoe_user,
-            "Nama Pelanggan": config_request.customer.name,
-            "OLT dan ONU": iface_onu,
-            "Profil yang dipakai": f"UP-{up_paket} / DOWN-{down_paket}"
+            "serial_number": config_request.sn,
+            "pppoe_user": config_request.customer.pppoe_user,
+            "name": config_request.customer.name,
+            "location": iface_onu,
+            "profile": f"UP-{up_paket} / DOWN-{down_paket}"
         }
 
         logs.extend([

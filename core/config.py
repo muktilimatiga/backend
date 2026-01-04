@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     NMS_PASSWORD_BILING: str
     DATA_PSB_URL: str
 
+    #SWITCH
+    SWITCH_USERNAME: str
+    SWITCH_PASSWORD: str
+
     # --- Services ---
     TELNET_TIMEOUT: int = 15
     BOT_TOKEN: str

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from api.v1.endpoints import (
-    cli, customer_scrapper, open_ticket, telnet, file_handler, onu_handler
+    cli, customer_scrapper, open_ticket, telnet, file_handler, onu_handler, bot_api
 )
 
 api_router = APIRouter()
@@ -43,4 +43,10 @@ api_router.include_router(
     file_handler.router,
     prefix="/file",
     tags=["File"],
+)
+
+api_router.include_router(
+    bot_api.router,
+    prefix="/bot",
+    tags=["Bot"],
 )
