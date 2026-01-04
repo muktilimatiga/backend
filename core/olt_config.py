@@ -29,6 +29,25 @@ OLT_ALIASES = {
     "GANDUSARI": "GANDUSARI",
 }
 
+def get_olt_info(olt_name: str) -> dict | None:
+    """
+    Get OLT info by name with alias fallback.
+    First checks OLT_OPTIONS, then falls back to OLT_ALIASES.
+    Returns None if not found.
+    """
+    name_upper = olt_name.upper()
+    
+    # Try direct lookup first
+    if name_upper in OLT_OPTIONS:
+        return OLT_OPTIONS[name_upper]
+    
+    # Fallback to alias
+    resolved_name = OLT_ALIASES.get(name_upper)
+    if resolved_name:
+        return OLT_OPTIONS.get(resolved_name)
+    
+    return None
+
 # Command templates for OLT operations
 # Use {placeholders} for dynamic values
 COMMAND_TEMPLATES = {
@@ -37,10 +56,10 @@ COMMAND_TEMPLATES = {
         "c300": ["pon-onu-mng {interface}", "reboot", "exit"],
         "c600": ["pon-onu-mng {interface}", "reboot", "exit"],
     },
-    # Delete ONU commands
+    # Delete ONU commands (used with _config_interface_commands)
     "delete_onu": {
-        "c300": ["interface {interface}", "no onu {onu_id}", "exit", "exit"],
-        "c600": ["interface {interface}", "no onu {onu_id}", "exit", "exit"],
+        "c300": ["no onu {onu_id}", "exit"],
+        "c600": ["no onu {onu_id}", "exit"],
     },
     # Change SN / Re-register ONU
     "change_sn": {
@@ -54,8 +73,8 @@ COMMAND_TEMPLATES = {
     },
     # Redaman Onu
     "redaman_onu": {
-        "c300": ["show gpon pon onu  {onu_id}"],
-        "c600": ["show gpon pon onu  {onu_id}"],
+        "c300": ["show pon power attenuation {interface}"],
+        "c600": ["show pon power attenuation {interface}"],
     },
     #1 port Detail
     "port_state": {
@@ -87,4 +106,8 @@ COMMAND_TEMPLATES = {
         "c300": ["show gpon remote-onu interface eth {interface}"],
         "c600": ["show gpon remote-onu interface eth {interface}"],
     },
+    "cek_dba": {
+        "c300": ["show pon bandwidth dba interface {interface}"],
+        "c600": ["show pon bandwidth dba interface {interface}"],
+    }
 }

@@ -65,10 +65,17 @@ class TelnetClient:
             return int(interface.split(":")[-1])
         raise ValueError(f"Invalid interface format: {interface}, expected format like '1/1/1:1'")
 
+    @staticmethod
+    def _parse_base_interface(interface: str) -> str:
+        """Parse base interface without ONU ID: '1/1/1:111' -> '1/1/1'"""
+        if ":" in interface:
+            return interface.split(":")[0]
+        return interface
+
     def _config_interface_commands(self, interface: str) -> list[str]:
         """Generate common 'configure terminal' + 'interface' command list"""
         return [
-            "configure terminal",
+            "configure terminal\n",
             f"interface {interface}"
         ]
 
@@ -290,6 +297,32 @@ class TelnetClient:
         }
     
     @staticmethod
+    def _parse_onu_dba(raw_output: str) -> str:
+        """
+        Parse DBA rate from bandwidth output.
+        Gets the rate from the second data line (GPON channel).
+        Example:
+          gpon_olt-1/3/1    1(XG-PON)   0            2488320    FALSE    0.0   <- skip
+          gpon_olt-1/3/1    2(GPON)     485100       759060     FALSE    39.0  <- get this
+        Returns: "39.0%"
+        """
+        # Find all lines with rate values at the end (format: ...  XX.X)
+        rate_regex = re.compile(
+            r"gpon[_-]olt[_-]\S+.*\s+([\d.]+)\s*$",
+            re.MULTILINE
+        )
+        
+        matches = rate_regex.findall(raw_output)
+        
+        # Get the second match (GPON line, index 1)
+        if len(matches) >= 2:
+            return f"{matches[1]}%"
+        elif len(matches) == 1:
+            return f"{matches[0]}%"
+        
+        return "0.0%"
+    
+    @staticmethod
     def _parse_eth_port_statuses(raw_output: str) -> list[dict]:
         """
         Parses all eth ports with admin status and speed status.
@@ -318,7 +351,11 @@ class TelnetClient:
             admin_status = match.group(3)
             
             is_unlocked = admin_status.lower() == "unlock"
-            lan_detected = speed_status.lower() != "unknown"
+            
+            # LAN detected only if speed shows actual connection (full-100, half-10, etc.)
+            # "auto" or "unknown" means no cable connected
+            speed_lower = speed_status.lower()
+            lan_detected = "full-" in speed_lower or "half-" in speed_lower
             
             # Parse speed in Mbps from speed_status like "full-100", "full-10", "half-100"
             speed_mbps = None
@@ -411,9 +448,12 @@ class TelnetClient:
             logging.error(f"Failed during reboot for {interface}: {e}")
             return f"Reboot failed: {e}"
     
-    async def send_no_onu(self, olt_port: str, onu_id: int) -> str:
+    async def send_no_onu(self, interface: str) -> str:
         """Delete an ONU from OLT"""
-        full_interface = self._format_onu_interface(olt_port)
+        base_interface = self._parse_base_interface(interface)  # "1/1/1:111" -> "1/1/1"
+        full_interface = self._format_olt_interface(base_interface)  # "1/1/1" -> "gpon_olt-1/1/1"
+        onu_id = self._parse_onu_id(interface)  # "1/1/1:111" -> 111
+        
         commands = self._config_interface_commands(full_interface)
         commands.extend(self._get_action_commands("delete_onu", onu_id=onu_id))
 
@@ -453,7 +493,6 @@ class TelnetClient:
             for cmd in commands:
                 output = await self._execute_command(cmd)
             
-            # Parse the output to get structured data
             parsed_statuses = TelnetClient._parse_eth_port_statuses(output)
             return parsed_statuses
         except Exception as e:
@@ -478,6 +517,23 @@ class TelnetClient:
             logging.error(f"Failed to get IP host for {full_interface}: {e}")
             return "0.0.0.0"
     
+    async def get_onu_dba(self, interface: str) -> str:
+        """
+        Cek DBA ONU
+        """
+        full_interface = self._format_olt_interface(interface)
+        commands = self._get_action_commands("cek_dba", interface=full_interface)
+
+        try:
+            for cmd in commands:
+                output = await self._execute_command(cmd)
+            
+            # Parse to get DBA information
+            parsed_dba = TelnetClient._parse_onu_dba(output)
+            return parsed_dba
+        except Exception as e:
+            logging.error(f"Failed to get DBA for {full_interface}: {e}")
+            return ""
     
     # Config
 

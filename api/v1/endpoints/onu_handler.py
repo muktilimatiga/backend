@@ -9,7 +9,7 @@ from schemas.onu_handler import (
 
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
-from core.olt_config import OLT_OPTIONS
+from core.olt_config import OLT_OPTIONS, get_olt_info
 
 router = APIRouter()
 
@@ -30,8 +30,7 @@ def _parse_interface(interface: str) -> str:
 
 @router.post("/onu/cek", response_class=PlainTextResponse)
 async def cek_onu(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
     if not olt_info:
         raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
@@ -56,10 +55,9 @@ async def cek_onu(request: OnuDetailRequest):
         # This catches the OLT error text if it wasn't caught inside TelnetClient
         raise HTTPException(status_code=500, detail=f"Proses cek gagal: {e}")
     
-@router.get("/{olt_name}/onu/reboot")
+@router.post("/{olt_name}/onu/reboot")
 async def reboot_onu(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
     if not olt_info:
         raise HTTPException(
             status_code=404, 
@@ -83,10 +81,9 @@ async def reboot_onu(request: OnuDetailRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Proses cek gagal: {e}")
     
-@router.get("/{olt_name}/onu/no-onu", response_model=OnuDetailResponse)
+@router.post("/{olt_name}/onu/no-onu", response_model=OnuDetailResponse)
 async def no_onu(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
     if not olt_info:
         raise HTTPException(
             status_code=404, 
@@ -113,9 +110,9 @@ async def no_onu(request: OnuDetailRequest):
 
 @router.post("/{olt_name}/onu/port_state", response_class=PlainTextResponse)
 async def cek_1_port(request: OnuDetailRequest):
-    # 1. Ambil config OLT
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
     # 2. Minta koneksi ke Manager (Bukan bikin baru)
     # Manager akan kasih koneksi lama kalau ada, atau bikin baru kalau belum ada
@@ -141,9 +138,9 @@ async def cek_1_port(request: OnuDetailRequest):
 
 @router.post("/{olt_name}/onu/port_rx", response_class=PlainTextResponse)
 async def cek_1_port_rx(request: OnuDetailRequest):
-    # 1. Ambil config OLT
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
     # 2. Minta koneksi ke Manager (Bukan bikin baru)
     # Manager akan kasih koneksi lama kalau ada, atau bikin baru kalau belum ada
@@ -168,8 +165,9 @@ async def cek_1_port_rx(request: OnuDetailRequest):
 
 @router.post("/{olt_name}/onu/get-ip", response_model=OnuDetailResponse)
 async def get_onu_ip(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
     try:
         handler = await olt_manager.get_connection(
@@ -187,10 +185,11 @@ async def get_onu_ip(request: OnuDetailRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{olt_name}/onu/cek-eth", response_model=OnuDetailResponse)
+@router.post("/{olt_name}/onu/cek-eth")
 async def cek_eth(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
     try:
         handler = await olt_manager.get_connection(
@@ -203,15 +202,17 @@ async def cek_eth(request: OnuDetailRequest):
         # ONU-level command: needs full interface with ONU ID (1/1/1:1)
         data = await handler.get_eth_port_statuses(request.interface)
 
-        return OnuDetailResponse(result=data)
+        # Returns list of dicts with lan_detected, is_unlocked, etc.
+        return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{olt_name}/onu/get-dba", response_model=OnuDetailResponse)
 async def get_dba(request: OnuDetailRequest):
-    target_olt = request.olt_name.upper()
-    olt_info = OLT_OPTIONS.get(target_olt)
+    olt_info = get_olt_info(request.olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     
     try:
         handler = await olt_manager.get_connection(
@@ -222,7 +223,7 @@ async def get_dba(request: OnuDetailRequest):
         )
         
         base_interface = _parse_interface(request.interface)
-        data = await handler.get_dba_rate(base_interface)
+        data = await handler.get_onu_dba(base_interface)
 
         return OnuDetailResponse(result=data)
 
