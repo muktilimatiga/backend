@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
+from schemas.config_handler import CustomerData, DataPSB, CustomerwithInvoices
 from core.config import settings
-from schemas.customers_scrapper import CustomerwithInvoices, DataPSB
 from services.biling_scaper import BillingScraper, NOCScrapper
+from services.supabase_client import get_customers_view, search_customers
 
 router = APIRouter()
 
@@ -39,3 +40,28 @@ def get_fast_customer_details(
             customer.update(invoice_payload)
             customer["detail_url"] = detail_url
     return customers
+
+
+@router.get("/customers-data", response_model=List[CustomerData])
+async def get_customer_data(
+    search: Optional[str] = Query(None, description="Search by name, address, or pppoe"),
+    limit: int = Query(50, ge=1, le=200)
+):
+    """Get customer data from Supabase."""
+    try:
+        if search:
+            customers = search_customers(search, limit=limit)
+        else:
+            customers = get_customers_view(limit=limit)
+        
+        # Map to CustomerData schema
+        result = []
+        for c in customers:
+            result.append(CustomerData(
+                name=c.get("nama", "Unknown"),
+                address=c.get("alamat", ""),
+                pppoe_user=c.get("user_pppoe", "")
+            ))
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch customers: {e}")

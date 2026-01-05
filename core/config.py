@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # --- Development Mode ---
     DISABLE_AUTH: bool = False  # Set to True to disable JWT authentication for development
 
+    # SUPABASE
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+
     # --- URLs ---
     LOGIN_URL: str
     LOGIN_URL_BILLING: str

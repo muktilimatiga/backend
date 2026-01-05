@@ -14,6 +14,11 @@ class CustomerInfo(BaseModel):
     pppoe_user: str
     pppoe_pass: str
 
+class CustomerData(BaseModel):
+    name: str
+    address: str
+    pppoe_user: str
+    
 class ConfigurationRequest(BaseModel):
     sn: str
     customer: CustomerInfo
