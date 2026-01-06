@@ -3,11 +3,21 @@ version: '3.8'
 
 services:
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platform: linux/amd64
+    platform: linux/amd64
     ports:
-      - "8001:8001"
+      - "8002:8002"
     env_file:
-      - ./backend/.env
+      - .env
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    driver: bridge
