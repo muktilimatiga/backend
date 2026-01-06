@@ -9,10 +9,12 @@ from schemas.config_handler import (
     UnconfiguredOnt, ConfigurationRequest, ConfigurationResponse, 
     ConfigurationSummary, OptionsResponse, ConfigurationBridgeRequest, 
     CongigurationBridgeResponse, BatchConfigurationRequest, 
-    BatchItemResult, BatchConfigurationResponse
+    BatchItemResult, BatchConfigurationResponse, CustomerInfo,
+    ReconfigRequest, ReconfigItemResult, ReconfigResponse
 )
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
+from services.database import get_customers_by_sns, save_customer_config_async, fetch_paket_from_billing
 
 router = APIRouter()
 
@@ -59,15 +61,30 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
             host=olt_info["ip"],
             username=settings.OLT_USERNAME,
             password=settings.OLT_PASSWORD,
-            is_c600=olt_info["c600"]
+            is_c600=olt_info["c600"],
         )
-        logs, summary = await handler.apply_configuration(request, vlan=olt_info["vlan"])
+        logs, summary = await handler.apply_configuration(request)
         
         # Check if configuration failed (error is now returned in summary, not raised)
         if summary["status"] == "error":
             logs.append("ERROR < Konfigurasi gagal. Lihat report untuk detail.")
         else:
-            logs.append("INFO < Database save functionality not yet implemented.")
+            # Save to database on success
+            from services.database import save_customer_config_async
+            db_saved = await save_customer_config_async(
+                user_pppoe=request.customer.pppoe_user,
+                nama=request.customer.name,
+                alamat=request.customer.address,
+                olt_name=olt_name.upper(),
+                interface=summary["location"],
+                onu_sn=request.sn,
+                pppoe_password=request.customer.pppoe_pass,
+                paket=request.package,
+            )
+            if db_saved:
+                logs.append("INFO < Data pelanggan berhasil disimpan ke database.")
+            else:
+                logs.append("WARN < Gagal menyimpan ke database, konfigurasi OLT tetap berhasil.")
             
         return ConfigurationResponse(
             message=summary["message"],
@@ -183,5 +200,158 @@ async def run_batch_configuration(olt_name: str, batch: BatchConfigurationReques
         total=len(batch.items),
         success_count=success_count,
         fail_count=fail_count,
+        results=results
+    )
+
+
+@router.post("/api/olts/{olt_name}/reconfig-batch", response_model=ReconfigResponse)
+async def run_reconfig_batch(olt_name: str, request: ReconfigRequest):
+    """
+    Reconfig endpoint: Configure ONTs by SN list (lookup from database).
+    
+    Flow:
+    1. Take list of SNs from request
+    2. Bulk lookup customer data from data_fiber table
+    3. For each found customer, build config and apply
+    4. Return summary of results
+    """
+    olt_info = OLT_OPTIONS.get(olt_name.upper())
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT '{olt_name}' tidak ditemukan.")
+    
+    if not request.sn_list:
+        raise HTTPException(status_code=400, detail="sn_list tidak boleh kosong.")
+    
+    results = []
+    stats = {
+        "total_unconfigured": len(request.sn_list),
+        "found_in_db": 0,
+        "not_in_db": 0,
+        "configured": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+    
+    try:
+        # 1. Connect to OLT
+        handler = await olt_manager.get_connection(
+            host=olt_info["ip"],
+            username=settings.OLT_USERNAME,
+            password=settings.OLT_PASSWORD,
+            is_c600=olt_info["c600"]
+        )
+        
+        # 2. Bulk lookup customers from database by SN list
+        customers = await asyncio.to_thread(get_customers_by_sns, request.sn_list)
+        
+        # 3. Process each SN from request
+        for sn in request.sn_list:
+            sn_upper = sn.upper()
+            customer_data = customers.get(sn_upper)
+            
+            if not customer_data:
+                stats["not_in_db"] += 1
+                results.append(ReconfigItemResult(
+                    sn=sn,
+                    status="not_found",
+                    message=f"SN {sn} tidak ditemukan di database"
+                ))
+                continue
+            
+            stats["found_in_db"] += 1
+            
+            # Check if we have enough data to configure
+            if not customer_data.get("user_pppoe") or not customer_data.get("pppoe_password"):
+                stats["skipped"] += 1
+                results.append(ReconfigItemResult(
+                    sn=sn,
+                    user_pppoe=customer_data.get("user_pppoe"),
+                    status="skipped",
+                    message="Data PPPoE tidak lengkap di database"
+                ))
+                continue
+            
+            # Get paket: DB → Billing → Default
+            paket = customer_data.get("paket")
+            if not paket:
+                # Try fetching from billing system
+                paket = await asyncio.to_thread(
+                    fetch_paket_from_billing, 
+                    customer_data["user_pppoe"]
+                )
+            if not paket:
+                # Fallback to default
+                paket = request.default_paket
+            
+            # Build ConfigurationRequest from database
+            config_request = ConfigurationRequest(
+                sn=sn,
+                customer=CustomerInfo(
+                    name=customer_data.get("nama") or "",
+                    address=customer_data.get("alamat") or "",
+                    pppoe_user=customer_data["user_pppoe"],
+                    pppoe_pass=customer_data["pppoe_password"],
+                ),
+                package=paket,
+                modem_type=request.modem_type,
+                eth_locks=request.eth_locks,
+            )
+            
+            try:
+                # 4. Apply configuration
+                logs, summary = await handler.apply_configuration(
+                    config_request, 
+                    vlan=olt_info["vlan"]
+                )
+                
+                if summary["status"] == "success":
+                    stats["configured"] += 1
+                    
+                    # Update database with new interface
+                    await save_customer_config_async(
+                        user_pppoe=config_request.customer.pppoe_user,
+                        nama=config_request.customer.name,
+                        alamat=config_request.customer.address,
+                        olt_name=olt_name.upper(),
+                        interface=summary["location"],
+                        onu_sn=sn,
+                        pppoe_password=config_request.customer.pppoe_pass,
+                        paket=paket,
+                    )
+                    
+                    results.append(ReconfigItemResult(
+                        sn=sn,
+                        user_pppoe=customer_data["user_pppoe"],
+                        status="success",
+                        message=summary["message"],
+                        logs=logs
+                    ))
+                else:
+                    stats["failed"] += 1
+                    results.append(ReconfigItemResult(
+                        sn=sn,
+                        user_pppoe=customer_data["user_pppoe"],
+                        status="error",
+                        message=summary["message"],
+                        logs=logs
+                    ))
+                    
+            except Exception as e:
+                stats["failed"] += 1
+                results.append(ReconfigItemResult(
+                    sn=sn,
+                    user_pppoe=customer_data.get("user_pppoe"),
+                    status="error",
+                    message=f"Unexpected error: {str(e)}",
+                    logs=[f"ERROR < {str(e)}"]
+                ))
+
+    except (ConnectionError, asyncio.TimeoutError) as e:
+        raise HTTPException(status_code=504, detail=f"Gagal koneksi ke OLT: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"System Error: {e}")
+    
+    return ReconfigResponse(
+        **stats,
         results=results
     )

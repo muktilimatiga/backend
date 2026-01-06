@@ -16,8 +16,7 @@
 - "wan-ip 1 mode pppoe username {{ customer.pppoe_user }} password {{ customer.pppoe_pass }} vlan-profile vlan{{ vlan }} host 1"
 - "security-mgmt 2 ingress-type wan mode forward state enable protocol web"
 - "tr069-mgmt 1 state unlock"
-- "tr069-mgmt 1 acs http://172.16.129.3:7547 validate basic username acs password
- acsadmin12345"
+- "tr069-mgmt 1 acs http://172.16.129.3:7547 validate basic username acs password acsadmin12345"
 # Loop for Ethernet port states
 {% for i in range(4) %}
 - "interface eth eth_0/{{ i + 1 }} state {{ 'lock' if eth_locks[i] else 'unlock' }}"

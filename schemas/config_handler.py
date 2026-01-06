@@ -107,3 +107,34 @@ class BatchConfigurationResponse(BaseModel):
     success_count: int
     fail_count: int
     results: List[BatchItemResult]
+
+
+# --- RECONFIG SCHEMAS ---
+# For reconfiguring ONTs that lost their config (using database lookup)
+
+class ReconfigRequest(BaseModel):
+    """Request to reconfig ONTs by SN list (lookup from database)."""
+    sn_list: List[str]  # List of SNs to reconfigure
+    default_paket: str = "10M"  # Default package if not in database
+    modem_type: str = "F609"    # Default modem type
+    eth_locks: List[bool] = [False, True, True, True]  # ETH port lock config
+
+
+class ReconfigItemResult(BaseModel):
+    """Result for a single ONT reconfig attempt."""
+    sn: str
+    user_pppoe: Optional[str] = None
+    status: str  # "success", "error", "skipped", "not_found"
+    message: str
+    logs: List[str] = []
+
+
+class ReconfigResponse(BaseModel):
+    """Response for reconfig endpoint."""
+    total_unconfigured: int
+    found_in_db: int
+    not_in_db: int
+    configured: int
+    failed: int
+    skipped: int
+    results: List[ReconfigItemResult]

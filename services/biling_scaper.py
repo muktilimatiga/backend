@@ -8,7 +8,7 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 import urllib3
-from bs4 import BeautifulSoupj
+from bs4 import BeautifulSoup
 
 from core import settings
 

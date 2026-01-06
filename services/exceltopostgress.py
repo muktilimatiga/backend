@@ -26,7 +26,6 @@ class ExcelHandler:
         "onu_port": ["port onu","onu port","port","port_onu"],
         "onu_sn": ["no. sn","sn","serial","no sn","onu sn","serial number","serial_number"],
         "password": ["password","pppoe password","pw","pass"],
-        "mac": ["mac","mac address","mac_address"],
         "paket": ["paket", "Paket", "PAKET"],
     }
 
@@ -117,7 +116,7 @@ class ExcelHandler:
 
             yield {
                 "user_pppoe": pppoe,
-                "name": name,
+                "nama": name,
                 "alamat": addr,
                 "olt_name": olt_name,
                 "olt_port": final_olt_port,
@@ -136,7 +135,7 @@ class ExcelHandler:
         cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
             user_pppoe TEXT PRIMARY KEY,
-            name TEXT,
+            nama TEXT,
             alamat TEXT,
             olt_name TEXT,
             olt_port TEXT,
@@ -158,7 +157,7 @@ class ExcelHandler:
 
         sql = f"""
         INSERT INTO {TABLE_NAME} (
-            user_pppoe, name, alamat, olt_name, olt_port, onu_sn,
+            user_pppoe, nama, alamat, olt_name, olt_port, onu_sn,
             pppoe_password, interface, onu_id, sheet, paket, updated_at
         )
         VALUES (
@@ -166,7 +165,7 @@ class ExcelHandler:
         )
         ON CONFLICT (user_pppoe)
         DO UPDATE SET
-            name = EXCLUDED.name,
+            nama = EXCLUDED.nama,
             alamat = EXCLUDED.alamat,
             olt_name = EXCLUDED.olt_name,
             olt_port = EXCLUDED.olt_port,
@@ -203,7 +202,7 @@ class ExcelHandler:
             for sheet in xl.sheet_names:
                 for doc in cls.docs_from_sheet(xl, sheet) or []:
                     rows_buffer.append((
-                        doc["user_pppoe"], doc["name"], doc["alamat"], doc["olt_name"],
+                        doc["user_pppoe"], doc["nama"], doc["alamat"], doc["olt_name"],
                         doc["olt_port"], doc["onu_sn"], doc["pppoe_password"], doc["interface"],
                         doc["onu_id"], doc["sheet"], doc["paket"], doc["updated_at"]
                     ))
