@@ -8,9 +8,9 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 import urllib3
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoupj
 
-from core.config import settings
+from core import settings
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -220,8 +220,9 @@ class BillingScraper:
             # Return empty structure on failure so API doesn't crash
             return {
                 "paket": None,
-                "latitude": None,
-                "longitude": None,
+                "coordinate": None,
+                "user_join": None,
+                "mobile": None,
                 "invoices": [], 
                 "summary": {
                     "this_month": "Error", 
@@ -234,46 +235,95 @@ class BillingScraper:
 
         package_current = None
         last_paid = None
-        latitude = None
-        longitude = None
+        coordinate = None
+        user_join = None
+        mobile = None
         
         # Extract package
         paket_p_tag = soup.find('p', string=lambda text: text and 'Paket :' in text)
         if paket_p_tag and paket_p_tag.span:
             package_current = paket_p_tag.span.get_text(strip=True)
         
-        # Extract last payment
-        last_payment_p_tag = soup.find('p', string=lambda text: text and 'Last Payment :' in text)
-        if last_payment_p_tag and last_payment_p_tag.span:
-            last_paid = last_payment_p_tag.span.get_text(strip=True)
+        # Extract last payment (robust: look for strong tag with text, then get sibling span)
+        last_payment_strong = soup.find('strong', string=lambda t: t and 'Last Payment' in t)
+        if last_payment_strong:
+            # Try sibling span first
+            span = last_payment_strong.find_next_sibling('span')
+            if span:
+                last_paid = span.get_text(strip=True)
+            else:
+                # Try parent's span
+                parent_p = last_payment_strong.find_parent('p')
+                if parent_p:
+                    span = parent_p.find('span')
+                    if span:
+                        last_paid = span.get_text(strip=True)
         
-        # Extract coordinates (latitude/longitude) from table or paragraphs
-        # Try finding in table rows
-        for row in soup.find_all('tr'):
-            cells = row.find_all(['td', 'th'])
-            for i, cell in enumerate(cells):
-                cell_text = cell.get_text(strip=True).lower()
-                if 'lattitude' in cell_text or 'latitude' in cell_text:
-                    if i + 1 < len(cells):
-                        latitude = cells[i + 1].get_text(strip=True)
-                    elif cell.find_next_sibling():
-                        latitude = cell.find_next_sibling().get_text(strip=True)
-                elif 'longitude' in cell_text:
-                    if i + 1 < len(cells):
-                        longitude = cells[i + 1].get_text(strip=True)
-                    elif cell.find_next_sibling():
-                        longitude = cell.find_next_sibling().get_text(strip=True)
+        # Fallback: original method
+        if not last_paid:
+            last_payment_p_tag = soup.find('p', string=lambda text: text and 'Last Payment :' in text)
+            if last_payment_p_tag and last_payment_p_tag.span:
+                last_paid = last_payment_p_tag.span.get_text(strip=True)
         
-        # Alternative: Try finding in paragraphs with labels
-        if not latitude:
-            lat_tag = soup.find(lambda tag: tag.name == 'p' and ('lattitude' in tag.get_text().lower() or 'latitude' in tag.get_text().lower()))
-            if lat_tag and lat_tag.span:
-                latitude = lat_tag.span.get_text(strip=True)
+        # Extract User Join
+        user_join_tag = soup.find('p', string=lambda text: text and 'User Join :' in text)
+        if user_join_tag and user_join_tag.span:
+            user_join = user_join_tag.span.get_text(strip=True)
         
-        if not longitude:
-            lng_tag = soup.find(lambda tag: tag.name == 'p' and 'longitude' in tag.get_text().lower())
-            if lng_tag and lng_tag.span:
-                longitude = lng_tag.span.get_text(strip=True)
+        # Extract Mobile and normalize to 62 format
+        mobile_tag = soup.find('p', string=lambda text: text and 'Mobile :' in text)
+        if mobile_tag and mobile_tag.span:
+            mobile_raw = mobile_tag.span.get_text(strip=True)
+            if mobile_raw:
+                # Normalize: if starts with 0, replace with 62
+                if mobile_raw.startswith("0"):
+                    mobile = "62" + mobile_raw[1:]
+                elif not mobile_raw.startswith("62"):
+                    mobile = mobile_raw
+                else:
+                    mobile = mobile_raw
+        
+        # Extract coordinate from input name="coordinat" with value="lat,lng"
+        coord_input = soup.find("input", {"name": "coordinat"})
+        if coord_input and coord_input.get("value"):
+            coord_value = coord_input.get("value", "").strip()
+            # Format: "-8.122402,111.913993"
+            if coord_value and "," in coord_value:
+                coordinate = coord_value
+        
+        # Fallback: Try finding latitude/longitude from table rows and combine
+        if not coordinate:
+            latitude = None
+            longitude = None
+            for row in soup.find_all('tr'):
+                cells = row.find_all(['td', 'th'])
+                for i, cell in enumerate(cells):
+                    cell_text = cell.get_text(strip=True).lower()
+                    if 'lattitude' in cell_text or 'latitude' in cell_text:
+                        if i + 1 < len(cells):
+                            latitude = cells[i + 1].get_text(strip=True)
+                        elif cell.find_next_sibling():
+                            latitude = cell.find_next_sibling().get_text(strip=True)
+                    elif 'longitude' in cell_text:
+                        if i + 1 < len(cells):
+                            longitude = cells[i + 1].get_text(strip=True)
+                        elif cell.find_next_sibling():
+                            longitude = cell.find_next_sibling().get_text(strip=True)
+            
+            # Try paragraphs if table didn't work
+            if not latitude:
+                lat_tag = soup.find(lambda tag: tag.name == 'p' and ('lattitude' in tag.get_text().lower() or 'latitude' in tag.get_text().lower()))
+                if lat_tag and lat_tag.span:
+                    latitude = lat_tag.span.get_text(strip=True)
+            
+            if not longitude:
+                lng_tag = soup.find(lambda tag: tag.name == 'p' and 'longitude' in tag.get_text().lower())
+                if lng_tag and lng_tag.span:
+                    longitude = lng_tag.span.get_text(strip=True)
+            
+            # Combine into coordinate if both found
+            if latitude and longitude:
+                coordinate = f"{latitude},{longitude}"
 
         invoices = []
         timeline_items = soup.select("ul.list-unstyled.timeline-sm > li.timeline-sm-item")
@@ -320,8 +370,9 @@ class BillingScraper:
 
         return {
             "paket": package_current,
-            "latitude": latitude,
-            "longitude": longitude,
+            "coordinate": coordinate,
+            "user_join": user_join,
+            "mobile": mobile,
             "invoices": invoices,
             "summary": {
                 "this_month": this_month_invoice.get("status") if this_month_invoice else None,

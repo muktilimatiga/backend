@@ -2,14 +2,13 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 import re
 import asyncio
-from core.config import settings
+
+from core import settings, OLT_OPTIONS, get_olt_info
 from schemas.onu_handler import (
     OnuDetailRequest, OnuDetailResponse, OnuFullResponse
 )
-
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
-from core.olt_config import OLT_OPTIONS, get_olt_info
 
 router = APIRouter()
 

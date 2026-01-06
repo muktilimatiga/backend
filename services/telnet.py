@@ -4,7 +4,8 @@ import telnetlib3
 import logging
 from typing import Optional, Dict, Any
 from jinja2 import Environment, FileSystemLoader
-from core.olt_config import PACKAGE_OPTIONS, OLT_OPTIONS, COMMAND_TEMPLATES
+
+from core import PACKAGE_OPTIONS, OLT_OPTIONS, COMMAND_TEMPLATES
 from schemas.config_handler import UnconfiguredOnt, ConfigurationRequest, ConfigurationBridgeRequest
 import yaml
 
@@ -759,104 +760,227 @@ class TelnetClient:
         return 0.0
 
     async def apply_configuration(self, config_request: ConfigurationRequest, vlan: str):
-        ont_list = await self.find_unconfigured_onts()
-        target_ont = next((ont for ont in ont_list if ont.sn == config_request.sn), None)
-        if not target_ont:
-            raise LookupError(f"ONT dengan SN {config_request.sn} tidak ditemukan.")
+        logs = []
+        current_step = "Inisialisasi"
         
-        base_iface = f"gpon-olt_1/{target_ont.pon_slot}/{target_ont.pon_port}"
-        if self.is_c600:
-            base_iface = f"gpon_olt-1/{target_ont.pon_port}/{target_ont.pon_slot}"
-        
-        onu_id = await self.find_next_available_onu_id(base_iface)
-        rate = await self.get_dba_rate(base_iface)
-        up_profile_suffix = "-MBW" if rate > 75.0 else "-FIX"
-        base_paket_name = PACKAGE_OPTIONS[config_request.package]
-        up_paket = f"{base_paket_name}{up_profile_suffix}"
-        down_paket = base_paket_name.replace("MB", "M")
-        # Modem type mapping: frontend name -> OLT config name
-        modem_mapping = {"F670L": "ZTEG-F670", "F609": "ZTEG-F609"}
-        olt_profile_type = modem_mapping.get(config_request.modem_type, "ALL")
-        
-        iface_onu = f"{'gpon_onu-1' if self.is_c600 else 'gpon-onu_1'}/{target_ont.pon_slot}/{target_ont.pon_port}:{onu_id}"
-        if self.is_c600:
-            iface_onu = f"gpon_onu-1/{target_ont.pon_port}/{target_ont.pon_slot}:{onu_id}"
-        
-        # --- FIX START: PREPARE LOCKS BEFORE CONTEXT ---
-        # 1. Extract the locks from the request
-        locks = config_request.eth_locks
-        
-        # 2. Force the list to have 4 items
-        if len(locks) == 1:
-            locks = locks * 4  # [True] becomes [True, True, True, True]
-        elif len(locks) < 4:
-            # Fill remaining with False (Unlock)
-            locks.extend([False] * (4 - len(locks)))
-        # --- FIX END ---
-
-        context = { 
-            "interface_olt": base_iface, 
-            "interface_onu": iface_onu, 
-            "pon_slot": target_ont.pon_slot, 
-            "pon_port": target_ont.pon_port, 
-            "onu_id": onu_id, 
-            "sn": config_request.sn, 
-            "customer": config_request.customer, 
-            "vlan": vlan, 
-            "up_profile": up_paket, 
-            "down_profile": down_paket, 
-            "jenismodem": olt_profile_type,
-            "eth_locks": locks  # <--- PASS THE PROCESSED LIST HERE
-        }
-        
-        template_name = "config_c600.yaml" if self.is_c600 else "config_c300.yaml"
-        
-        def _render_and_parse_yaml():
-            if jinja_env is None:
-                raise RuntimeError("Jinja2 environment not loaded.")
-            template = jinja_env.get_template(template_name)
-            rendered = template.render(context)
+        try:
+            # Step 1: Find unconfigured ONTs
+            current_step = "Mencari ONT unconfigured"
+            logs.append(f"STEP > {current_step}...")
+            ont_list = await self.find_unconfigured_onts()
             
-            # Debugging logs to verify data
-            logging.info(f"🔍 DEBUG CHECK: eth_locks content = {context['eth_locks']}")
-            logging.info(f"🔍 DEBUG CHECK: eth_locks length = {len(context['eth_locks'])}")
+            target_ont = next((ont for ont in ont_list if ont.sn == config_request.sn), None)
+            if not target_ont:
+                raise LookupError(f"ONT dengan SN '{config_request.sn}' tidak ditemukan di daftar unconfigured. Pastikan ONT sudah terpasang dan belum dikonfigurasi.")
+            logs.append(f"INFO < ONT ditemukan: Slot {target_ont.pon_slot}, Port {target_ont.pon_port}")
             
-            return yaml.safe_load(rendered)
-        
-        commands = await asyncio.to_thread(_render_and_parse_yaml)
-        
-        logs = [f"Memulai konfigurasi untuk SN: {config_request.sn} di {iface_onu}"]
-        logging.info(f"🚀 Starting configuration loop. Total commands: {len(commands)}")
-        
-        for cmd in commands:
-            logs.append(f"CMD > {cmd}")
-            logging.info(f"➡️ Executing: {cmd}")
-            output = await self._execute_command(cmd)
-            if output:
-                logs.append(f"LOG < {output}")
-            await asyncio.sleep(0.3) 
+            # Step 2: Build interface names
+            current_step = "Menyiapkan interface"
+            base_iface = f"gpon-olt_1/{target_ont.pon_slot}/{target_ont.pon_port}"
+            if self.is_c600:
+                base_iface = f"gpon_olt-1/{target_ont.pon_port}/{target_ont.pon_slot}"
+            logs.append(f"INFO < Base interface: {base_iface}")
+            
+            # Step 3: Find available ONU ID
+            current_step = "Mencari ONU ID kosong"
+            logs.append(f"STEP > {current_step}...")
+            onu_id = await self.find_next_available_onu_id(base_iface)
+            logs.append(f"INFO < ONU ID tersedia: {onu_id}")
+            
+            # Step 4: Check DBA rate
+            current_step = "Mengecek DBA rate"
+            logs.append(f"STEP > {current_step}...")
+            rate = await self.get_dba_rate(base_iface)
+            logs.append(f"INFO < DBA Rate: {rate}%")
+            
+            # Step 5: Prepare profiles
+            current_step = "Menyiapkan profil"
+            up_profile_suffix = "-MBW" if rate > 75.0 else "-FIX"
+            base_paket_name = PACKAGE_OPTIONS.get(config_request.package)
+            if not base_paket_name:
+                raise ValueError(f"Paket '{config_request.package}' tidak valid. Pilihan: {list(PACKAGE_OPTIONS.keys())}")
+            
+            up_paket = f"{base_paket_name}{up_profile_suffix}"
+            down_paket = base_paket_name.replace("MB", "M")
+            logs.append(f"INFO < Profil: UP-{up_paket} / DOWN-{down_paket}")
+            
+            # Modem type mapping
+            modem_mapping = {"F670L": "ZTEG-F670", "F609": "ZTEG-F609"}
+            olt_profile_type = modem_mapping.get(config_request.modem_type, "ALL")
+            
+            iface_onu = f"{'gpon_onu-1' if self.is_c600 else 'gpon-onu_1'}/{target_ont.pon_slot}/{target_ont.pon_port}:{onu_id}"
+            if self.is_c600:
+                iface_onu = f"gpon_onu-1/{target_ont.pon_port}/{target_ont.pon_slot}:{onu_id}"
+            
+            # Prepare ETH locks
+            locks = config_request.eth_locks
+            if len(locks) == 1:
+                locks = locks * 4
+            elif len(locks) < 4:
+                locks.extend([False] * (4 - len(locks)))
+            
+            # Step 6: Render template
+            current_step = "Render template konfigurasi"
+            logs.append(f"STEP > {current_step}...")
+            
+            context = { 
+                "interface_olt": base_iface, 
+                "interface_onu": iface_onu, 
+                "pon_slot": target_ont.pon_slot, 
+                "pon_port": target_ont.pon_port, 
+                "onu_id": onu_id, 
+                "sn": config_request.sn, 
+                "customer": config_request.customer, 
+                "vlan": vlan, 
+                "up_profile": up_paket, 
+                "down_profile": down_paket, 
+                "jenismodem": olt_profile_type,
+                "eth_locks": locks
+            }
+            
+            template_name = "config_c600.yaml" if self.is_c600 else "config_c300.yaml"
+            
+            def _render_and_parse_yaml():
+                if jinja_env is None:
+                    raise RuntimeError("Jinja2 environment not loaded. Cek folder templates.")
+                template = jinja_env.get_template(template_name)
+                rendered = template.render(context)
+                return yaml.safe_load(rendered)
+            
+            commands = await asyncio.to_thread(_render_and_parse_yaml)
+            logs.append(f"INFO < Template berhasil di-render. Total commands: {len(commands)}")
+            
+            # Step 7: Execute commands
+            current_step = "Eksekusi perintah konfigurasi"
+            logs.append(f"STEP > {current_step}...")
+            
+            for idx, cmd in enumerate(commands, 1):
+                current_step = f"Eksekusi command {idx}/{len(commands)}: {cmd[:50]}..."
+                logs.append(f"CMD > {cmd}")
+                logging.info(f"➡️ Executing: {cmd}")
+                output = await self._execute_command(cmd)
+                if output:
+                    logs.append(f"LOG < {output}")
+                    # Check for common error patterns in OLT output
+                    if "error" in output.lower() or "invalid" in output.lower() or "failed" in output.lower():
+                        raise RuntimeError(f"OLT mengembalikan error pada command: {cmd}\nOutput: {output}")
+                await asyncio.sleep(0.3)
+            
+            # SUCCESS - Build report
+            logs.append("STEP > Konfigurasi selesai!")
+            
+            report = "\n".join([
+                "=========================================================",
+                "              KONFIGURASI BERHASIL                       ",
+                "=========================================================",
+                f"  Serial Number      : {config_request.sn}",
+                f"  ID Pelanggan       : {config_request.customer.pppoe_user}",
+                f"  Nama Pelanggan     : {config_request.customer.name}",
+                f"  OLT dan ONU        : {iface_onu}",
+                f"  Profil             : UP-{up_paket} / DOWN-{down_paket}",
+                "========================================================="
+            ])
 
-        summary = {
-            "serial_number": config_request.sn,
-            "pppoe_user": config_request.customer.pppoe_user,
-            "name": config_request.customer.name,
-            "location": iface_onu,
-            "profile": f"UP-{up_paket} / DOWN-{down_paket}"
-        }
+            summary = {
+                "status": "success",
+                "message": "Konfigurasi berhasil",
+                "serial_number": config_request.sn,
+                "pppoe_user": config_request.customer.pppoe_user,
+                "name": config_request.customer.name,
+                "location": iface_onu,
+                "profile": f"UP-{up_paket} / DOWN-{down_paket}",
+                "report": report
+            }
 
-        logs.extend([
-            "",
-            "KONFIGURASI SELESAI",
-            "=========================================================",
-            f"Serial Number         : {config_request.sn}",
-            f"ID pelanggan          : {config_request.customer.pppoe_user}",
-            f"Nama pelanggan        : {config_request.customer.name}",
-            f"OLT dan ONU           : {iface_onu}",
-            f"Profil yang dipakai   : UP-{up_paket} / DOWN-{down_paket}",
-            "========================================================="
-        ])
-
-        return logs, summary
+            return logs, summary
+            
+        except LookupError as e:
+            # ONT not found - specific error
+            error_report = "\n".join([
+                "=========================================================",
+                "              KONFIGURASI GAGAL                          ",
+                "=========================================================",
+                f"  Error Type         : ONT Tidak Ditemukan",
+                f"  Step               : {current_step}",
+                f"  Serial Number      : {config_request.sn}",
+                f"  Detail             : {str(e)}",
+                "=========================================================",
+            ])
+            logs.append(f"ERROR < {str(e)}")
+            
+            summary = {
+                "status": "error",
+                "message": f"Gagal: {str(e)}",
+                "serial_number": config_request.sn,
+                "pppoe_user": config_request.customer.pppoe_user,
+                "name": config_request.customer.name,
+                "location": "-",
+                "profile": "-",
+                "report": error_report
+            }
+            return logs, summary
+            
+        except (ConnectionError, asyncio.TimeoutError) as e:
+            # Connection/timeout error
+            error_report = "\n".join([
+                "=========================================================",
+                "              KONFIGURASI GAGAL                          ",
+                "=========================================================",
+                f"  Error Type         : Koneksi / Timeout",
+                f"  Step               : {current_step}",
+                f"  Serial Number      : {config_request.sn}",
+                f"  Detail             : {str(e)}",
+                "=========================================================",
+                "",
+                "KEMUNGKINAN PENYEBAB:",
+                "  1. OLT tidak merespon (sibuk/overload)",
+                "  2. Koneksi jaringan ke OLT terputus",
+                "  3. Session telnet expired",
+                "========================================================="
+            ])
+            logs.append(f"ERROR < Connection/Timeout: {str(e)}")
+            
+            summary = {
+                "status": "error",
+                "message": f"Gagal: Koneksi timeout - {str(e)}",
+                "serial_number": config_request.sn,
+                "pppoe_user": config_request.customer.pppoe_user,
+                "name": config_request.customer.name,
+                "location": "-",
+                "profile": "-",
+                "report": error_report
+            }
+            return logs, summary
+            
+        except Exception as e:
+            # Generic error
+            error_report = "\n".join([
+                "=========================================================",
+                "              KONFIGURASI GAGAL                          ",
+                "=========================================================",
+                f"  Error Type         : {type(e).__name__}",
+                f"  Step               : {current_step}",
+                f"  Serial Number      : {config_request.sn}",
+                f"  Detail             : {str(e)}",
+                "=========================================================",
+                "",
+                "Silakan cek logs untuk detail lebih lanjut.",
+                "========================================================="
+            ])
+            logs.append(f"ERROR < {type(e).__name__}: {str(e)}")
+            logging.error(f"Configuration failed at step '{current_step}': {e}")
+            
+            summary = {
+                "status": "error",
+                "message": f"Gagal pada step '{current_step}': {str(e)}",
+                "serial_number": config_request.sn,
+                "pppoe_user": config_request.customer.pppoe_user,
+                "name": config_request.customer.name,
+                "location": "-",
+                "profile": "-",
+                "report": error_report
+            }
+            return logs, summary
     
 
     async def config_bridge(self, config_bridge_request: ConfigurationBridgeRequest, vlan: str):

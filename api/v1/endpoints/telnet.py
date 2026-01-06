@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 import asyncio
 
-from core.config import settings
+from core import settings, OLT_OPTIONS, MODEM_OPTIONS, PACKAGE_OPTIONS
 from schemas.config_handler import (
     UnconfiguredOnt, ConfigurationRequest, ConfigurationResponse, 
     ConfigurationSummary, OptionsResponse, ConfigurationBridgeRequest, 
@@ -13,7 +13,6 @@ from schemas.config_handler import (
 )
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
-from core.olt_config import OLT_OPTIONS, MODEM_OPTIONS, PACKAGE_OPTIONS
 
 router = APIRouter()
 
@@ -63,19 +62,23 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
             is_c600=olt_info["c600"]
         )
         logs, summary = await handler.apply_configuration(request, vlan=olt_info["vlan"])
-        logs.append("INFO < Database save functionality not yet implemented.")
+        
+        # Check if configuration failed (error is now returned in summary, not raised)
+        if summary["status"] == "error":
+            logs.append("ERROR < Konfigurasi gagal. Lihat report untuk detail.")
+        else:
+            logs.append("INFO < Database save functionality not yet implemented.")
             
         return ConfigurationResponse(
-            message="Konfigurasi berhasil.",
+            message=summary["message"],
             summary=ConfigurationSummary(**summary),
             logs=logs
-            )
+        )
     except (ConnectionError, asyncio.TimeoutError) as e:
-        raise HTTPException(status_code=504, detail=f"Gagal terhubung atau timeout saat koneksi ke OLT: {e}")
-    except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # This catches connection errors BEFORE apply_configuration runs
+        raise HTTPException(status_code=504, detail=f"Gagal terhubung ke OLT: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Proses konfigurasi gagal: {e}")
+        raise HTTPException(status_code=500, detail=f"System error: {e}")
     
 @router.post("api/olts/{olt_name}/config_bridge", response_model=CongigurationBridgeResponse)
 async def run_configuration_bridge(olt_name: str, request: ConfigurationBridgeRequest):
@@ -140,23 +143,33 @@ async def run_batch_configuration(olt_name: str, batch: BatchConfigurationReques
                     # Apply config
                     logs, summary = await handler.apply_configuration(request_item, vlan=olt_info["vlan"])
                     
-                    # Log success
-                    results.append(BatchItemResult(
-                        identifier=item_id,
-                        success=True,
-                        message="Konfigurasi berhasil.",
-                        logs=logs
-                    ))
-                    success_count += 1
+                    # Check if this item succeeded or failed
+                    if summary["status"] == "success":
+                        results.append(BatchItemResult(
+                            identifier=item_id,
+                            success=True,
+                            message=summary["message"],
+                            logs=logs
+                        ))
+                        success_count += 1
+                    else:
+                        # Configuration returned error in summary
+                        results.append(BatchItemResult(
+                            identifier=item_id,
+                            success=False,
+                            message=summary["message"],
+                            logs=logs
+                        ))
+                        fail_count += 1
                     
                 except Exception as e:
-                    # 4. Catch errors per item so one failure doesn't stop the whole batch
+                    # Catch unexpected errors per item so one failure doesn't stop the whole batch
                     fail_count += 1
                     results.append(BatchItemResult(
                         identifier=item_id,
                         success=False,
-                        message=str(e),
-                        logs=[f"Error processing {item_id}: {str(e)}"]
+                        message=f"Unexpected error: {str(e)}",
+                        logs=[f"ERROR < Unexpected error processing {item_id}: {str(e)}"]
                     ))
 
     except (ConnectionError, asyncio.TimeoutError) as e:

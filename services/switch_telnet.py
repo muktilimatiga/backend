@@ -2,7 +2,8 @@ import asyncio
 import logging
 import re
 import telnetlib3
-from core.switch_config import COMMAND_TEMPLATE
+
+from core import COMMAND_TEMPLATE
 
 
 logging.basicConfig(level=logging.INFO)

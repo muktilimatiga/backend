@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from core.config import settings
+from core import settings
 from services.open_ticket import (
     create_ticket_as_cs,    
     process_ticket_as_noc,

@@ -1,8 +1,9 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
+
+from core import settings
 from schemas.config_handler import CustomerData
-from schemas.customers_scrapper import DataPSB, CustomerwithInvoices
-from core.config import settings
+from schemas.customers_scrapper import DataPSB, CustomerwithInvoices, Customer
 from services.biling_scaper import BillingScraper, NOCScrapper
 from services.supabase_client import get_customers_view, search_customers
 
@@ -60,6 +61,49 @@ def get_customer_details(
     return customers
 
 
+# Get customer info only (no invoices) - coordinate, user_join, mobile, paket
+@router.get("/customers-info")
+def get_customer_info(
+    query: str = Query(..., min_length=1),
+    billing_scraper: BillingScraper = Depends(get_billing),
+):
+    """Get customer info without invoice data - faster for basic lookups."""
+    customers = billing_scraper.search(query)
+    if not customers:
+        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
+    
+    results = []
+    for customer in customers:
+        if cid := customer.get("id"):
+            detail_url = settings.DETAIL_URL_BILLING.format(cid)
+            # Get invoice data to extract customer info
+            invoice_payload = billing_scraper.get_invoice_data(detail_url)
+            
+            # Format coordinate as Google Maps URL
+            coordinate = invoice_payload.get("coordinate")
+            maps_url = None
+            if coordinate:
+                maps_url = f"https://www.google.com/maps/search/?api=1&query={coordinate}"
+            
+            # Format mobile as WhatsApp URL
+            mobile = invoice_payload.get("mobile")
+            wa_url = None
+            if mobile:
+                wa_url = f"https://wa.me/{mobile}"
+            
+            results.append({
+                "nama": customer.get("name"),
+                "alamat": customer.get("address"),
+                "user_pppoe": customer.get("user_pppoe"),
+                "paket": invoice_payload.get("paket"),
+                "maps": maps_url,
+                "mobile": wa_url,
+                "last_payment": invoice_payload.get("summary", {}).get("last_paid_month"),
+                "user_join": invoice_payload.get("user_join"),
+            })
+    return results
+
+
 @router.get("/customers-data", response_model=List[CustomerData])
 async def get_customer_data(
     search: Optional[str]= Query(None, description="Search by name, address, or pppoe")
@@ -76,8 +120,13 @@ async def get_customer_data(
         for c in customers:
             result.append(CustomerData(
                 name=c.get("nama", "Unknown"),
-                address=c.get("alamat", ""),
-                pppoe_user=c.get("user_pppoe", "")
+                alamat=c.get("alamat", ""),
+                pppoe_user=c.get("user_pppoe", ""),
+                pppoe_password=c.get("pppoe_password", ""),
+                olt_name=c.get("olt_name", ""),
+                interface=c.get("interface", ""),
+                onu_sn=c.get("onu_sn", ""),
+                modem_type=c.get("modem_type", ""),
             ))
         return result
     except Exception as e:

@@ -1,13 +1,15 @@
 import subprocess
 import asyncio
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
-from typing import Dict, List
-from starlette.responses import StreamingResponse
-from core.config import settings
-import httpx
 import logging
-from fastapi import APIRouter, HTTPException
+import pprint
+from typing import Dict, List
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect, Query, Depends
+from starlette.responses import StreamingResponse
+import httpx
+
+from core import settings
 from schemas.open_ticket import TicketClosePayload
+from schemas.customers_scrapper import Customer, DataPSB, CustomerwithInvoices
 from services.open_ticket import (
     create_ticket_as_cs,
     process_ticket_as_noc,
@@ -18,16 +20,13 @@ from services.open_ticket import (
     maybe_login,
     search_user
 )
-from core.config import settings
-
-from typing import List
-from fastapi import APIRouter, Query, HTTPException, Depends
-
-from schemas.customers_scrapper import Customer, DataPSB, CustomerwithInvoices
 from services.biling_scaper import BillingScraper
 
-import pprint
-from core.config import settings
 
-
-__all__ = ["APIRouter", "HTTPException", "Request", "WebSocket", "Dict", "List", "StreamingResponse", "httpx", "websockets", "logging", "APIRouter", "HTTPException", "OpenTicketRequest", "TicketClosePayload", "ForwardTicketPayload", "ProcessTicketRequest", "create_ticket_as_cs", "process_ticket_as_noc", "close_ticket_as_noc", "forward_ticket_as_noc", "extract_search_results", "build_driver", "maybe_login", "search_user", "WebSocketDisconnect"]
+__all__ = [
+    "APIRouter", "HTTPException", "Request", "WebSocket", "WebSocketDisconnect",
+    "Dict", "List", "StreamingResponse", "httpx", "logging",
+    "TicketClosePayload", "create_ticket_as_cs", "process_ticket_as_noc",
+    "close_ticket_as_noc", "forward_ticket_as_noc", "extract_search_results",
+    "build_driver", "maybe_login", "search_user", "settings"
+]

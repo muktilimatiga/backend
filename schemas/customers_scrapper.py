@@ -5,6 +5,9 @@ class Customer(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
     user_pppoe: Optional[str] = None
+    coordinate: Optional[str] = None
+    user_join: Optional[str] = None
+    mobile: Optional[str] = None
     detail_url: Optional[HttpUrl] = None
 
 class DataPSB(BaseModel):
@@ -31,8 +34,6 @@ class BillingSummary(BaseModel):
 
 class CustomerwithInvoices(Customer):
     paket: Optional[str] = None
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
     invoices: Optional[List[InvoiceItem]] = None
     summary: Optional[BillingSummary] = None
 

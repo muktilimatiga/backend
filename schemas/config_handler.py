@@ -18,6 +18,11 @@ class CustomerData(BaseModel):
     name: str
     address: str
     pppoe_user: str
+    pppoe_password: str
+    olt_name: str
+    interface: str
+    onu_sn: str
+    modem_type: str
     
 class ConfigurationRequest(BaseModel):
     sn: str
@@ -27,11 +32,14 @@ class ConfigurationRequest(BaseModel):
     eth_locks: List[bool]
 
 class ConfigurationSummary(BaseModel):
+    status: str
+    message: str
     serial_number: str
     name: str
     pppoe_user: str
     location: str
     profile: str
+    report: str
 
 class ConfigurationResponse(BaseModel):
     message: str

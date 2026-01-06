@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
-from core.olt_config import get_olt_info
-from core.switch_config import get_switch_connection
-from core.config import settings
+import re
+
+from core import settings, get_olt_info, get_switch_connection
 from services.connection_manager import olt_manager, switch_manager
 from services.switch_telnet import SwitchClient
 from schemas.bot_api import MonitoringRequest
-import re
 
 router = APIRouter()
 
