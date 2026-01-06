@@ -3,8 +3,9 @@ from . import BaseModel, Optional, List, HttpUrl
 class Customer(BaseModel):
     id: str
     name: Optional[str] = None
+    address: Optional[str] = None
     user_pppoe: Optional[str] = None
-    detail_url: HttpUrl
+    detail_url: Optional[HttpUrl] = None
 
 class DataPSB(BaseModel):
     name: Optional[str] = None
@@ -29,7 +30,11 @@ class BillingSummary(BaseModel):
     last_paid_month: Optional[str] = None
 
 class CustomerwithInvoices(Customer):
-    invoices: List[BillingSummary] = None
+    paket: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+    invoices: Optional[List[InvoiceItem]] = None
+    summary: Optional[BillingSummary] = None
 
     class Config:
         from_attributes = True

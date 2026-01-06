@@ -24,37 +24,23 @@ def get_customer_by_pppoe(user_pppoe: str):
 
 
 def search_customers(search_term: str, limit: int = 20):
-    """Search customers by name, alamat, or user_pppoe."""
-    response = (
-        supabase.table("customers_view")
-        .select("*")
-        .or_(f"nama.ilike.%{search_term}%,alamat.ilike.%{search_term}%,user_pppoe.ilike.%{search_term}%")
-        .limit(limit)
-        .execute()
-    )
+    """Search customers by name, alamat, or user_pppoe.
+    
+    Splits the search term by spaces and matches ALL words (AND logic).
+    E.g., "nasrul beji" will match records containing BOTH "nasrul" AND "beji".
+    Each word can appear in any field (nama, alamat, or user_pppoe).
+    """
+    # Split search term into individual words and convert to uppercase
+    words = search_term.strip().upper().split()
+    
+    # Start building the query
+    query = supabase.table("customers_view").select("*")
+    
+    # For each word, add an OR condition across all searchable fields
+    # Multiple .or_() calls are chained as AND
+    for word in words:
+        query = query.or_(f"nama.ilike.%{word}%,alamat.ilike.%{word}%,user_pppoe.ilike.%{word}%")
+    
+    response = query.limit(limit).execute()
     return response.data
 
-
-# Test block - run this file directly to test the connection
-if __name__ == "__main__":
-    print("Testing Supabase connection...")
-    print("-" * 50)
-    
-    try:
-        # Test fetching customers
-        customers = get_customers_view(limit=5)
-        print(f"Successfully fetched {len(customers)} customers!")
-        print("-" * 50)
-        
-        for customer in customers:
-            print(f"ID: {customer.get('customer_id')}")
-            print(f"  Nama: {customer.get('nama')}")
-            print(f"  PPPoE: {customer.get('user_pppoe')}")
-            print(f"  OLT: {customer.get('olt_name')}")
-            print(f"  Status: {customer.get('snmp_status')}")
-            print()
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()

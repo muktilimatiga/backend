@@ -219,7 +219,9 @@ class BillingScraper:
         except requests.RequestException as e:
             # Return empty structure on failure so API doesn't crash
             return {
-                "paket": None, 
+                "paket": None,
+                "latitude": None,
+                "longitude": None,
                 "invoices": [], 
                 "summary": {
                     "this_month": "Error", 
@@ -232,12 +234,46 @@ class BillingScraper:
 
         package_current = None
         last_paid = None
+        latitude = None
+        longitude = None
+        
+        # Extract package
         paket_p_tag = soup.find('p', string=lambda text: text and 'Paket :' in text)
         if paket_p_tag and paket_p_tag.span:
             package_current = paket_p_tag.span.get_text(strip=True)
+        
+        # Extract last payment
         last_payment_p_tag = soup.find('p', string=lambda text: text and 'Last Payment :' in text)
         if last_payment_p_tag and last_payment_p_tag.span:
             last_paid = last_payment_p_tag.span.get_text(strip=True)
+        
+        # Extract coordinates (latitude/longitude) from table or paragraphs
+        # Try finding in table rows
+        for row in soup.find_all('tr'):
+            cells = row.find_all(['td', 'th'])
+            for i, cell in enumerate(cells):
+                cell_text = cell.get_text(strip=True).lower()
+                if 'lattitude' in cell_text or 'latitude' in cell_text:
+                    if i + 1 < len(cells):
+                        latitude = cells[i + 1].get_text(strip=True)
+                    elif cell.find_next_sibling():
+                        latitude = cell.find_next_sibling().get_text(strip=True)
+                elif 'longitude' in cell_text:
+                    if i + 1 < len(cells):
+                        longitude = cells[i + 1].get_text(strip=True)
+                    elif cell.find_next_sibling():
+                        longitude = cell.find_next_sibling().get_text(strip=True)
+        
+        # Alternative: Try finding in paragraphs with labels
+        if not latitude:
+            lat_tag = soup.find(lambda tag: tag.name == 'p' and ('lattitude' in tag.get_text().lower() or 'latitude' in tag.get_text().lower()))
+            if lat_tag and lat_tag.span:
+                latitude = lat_tag.span.get_text(strip=True)
+        
+        if not longitude:
+            lng_tag = soup.find(lambda tag: tag.name == 'p' and 'longitude' in tag.get_text().lower())
+            if lng_tag and lng_tag.span:
+                longitude = lng_tag.span.get_text(strip=True)
 
         invoices = []
         timeline_items = soup.select("ul.list-unstyled.timeline-sm > li.timeline-sm-item")
@@ -284,6 +320,8 @@ class BillingScraper:
 
         return {
             "paket": package_current,
+            "latitude": latitude,
+            "longitude": longitude,
             "invoices": invoices,
             "summary": {
                 "this_month": this_month_invoice.get("status") if this_month_invoice else None,
