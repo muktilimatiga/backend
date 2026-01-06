@@ -10,19 +10,6 @@ from core.config import settings
 # Initialize Supabase client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
-
-def get_customers_view(limit: int = 100, offset: int = 0):
-    """Fetch data from customers_view."""
-    response = supabase.table("customers_view").select("*").limit(limit).offset(offset).execute()
-    return response.data
-
-
-def get_customer_by_pppoe(user_pppoe: str):
-    """Fetch a single customer by user_pppoe."""
-    response = supabase.table("customers_view").select("*").eq("user_pppoe", user_pppoe).single().execute()
-    return response.data
-
-
 def search_customers(search_term: str, limit: int = 20):
     """Search customers by name, alamat, or user_pppoe.
     
@@ -41,6 +28,25 @@ def search_customers(search_term: str, limit: int = 20):
     for word in words:
         query = query.or_(f"nama.ilike.%{word}%,alamat.ilike.%{word}%,user_pppoe.ilike.%{word}%")
     
+    response = query.limit(limit).execute()
+    return response.data
+
+def search_mitra(search_term: str, limit: int = 10):
+    """Search Mitra """
+    words = search_term.strip().upper().split()
+    query = supabase.table().select("*")
+    for word in words:
+        query = query.or_()
+    
+    response = query.limit(limit).execute()
+    return response.data
+
+def search_monitoring(search_term: str, limit: int = 20):
+    """Search Monitoring"""
+    words = search_term.strip().upper().split()
+    query = supabase.table("monitoring").select("*")
+    for word in words:
+        query = query.or_(f"nama.ilike.%{word}%,alamat.ilike.%{word}%,user_pppoe.ilike.%{word}%")
     response = query.limit(limit).execute()
     return response.data
 
