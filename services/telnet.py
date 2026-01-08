@@ -24,6 +24,7 @@ class TelnetClient:
         self.username = username
         self.password = password
         self.is_c600 = is_c600
+        self.olt_name = olt_name
         self._lock = None
         self.reader = None
         self.writer = None
@@ -759,7 +760,7 @@ class TelnetClient:
         logging.warning(f"Could not parse DBA rate for {interface}. Defaulting to 0.0")
         return 0.0
 
-    async def apply_configuration(self, config_request: ConfigurationRequest, vlan: str):
+    async def apply_configuration(self, config_request: ConfigurationRequest):
         logs = []
         current_step = "Inisialisasi"
         
@@ -807,6 +808,7 @@ class TelnetClient:
             # Modem type mapping
             modem_mapping = {"F670L": "ZTEG-F670", "F609": "ZTEG-F609"}
             olt_profile_type = modem_mapping.get(config_request.modem_type, "ALL")
+            vlan = OLT_OPTIONS[self.olt_name]["vlan"]
             
             iface_onu = f"{'gpon_onu-1' if self.is_c600 else 'gpon-onu_1'}/{target_ont.pon_slot}/{target_ont.pon_port}:{onu_id}"
             if self.is_c600:
@@ -931,12 +933,6 @@ class TelnetClient:
                 f"  Serial Number      : {config_request.sn}",
                 f"  Detail             : {str(e)}",
                 "=========================================================",
-                "",
-                "KEMUNGKINAN PENYEBAB:",
-                "  1. OLT tidak merespon (sibuk/overload)",
-                "  2. Koneksi jaringan ke OLT terputus",
-                "  3. Session telnet expired",
-                "========================================================="
             ])
             logs.append(f"ERROR < Connection/Timeout: {str(e)}")
             
