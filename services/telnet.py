@@ -24,7 +24,6 @@ class TelnetClient:
         self.username = username
         self.password = password
         self.is_c600 = is_c600
-        self.olt_name = olt_name
         self._lock = None
         self.reader = None
         self.writer = None
