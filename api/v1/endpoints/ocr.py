@@ -3,58 +3,72 @@ from fastapi.responses import PlainTextResponse
 from PIL import Image, ImageOps, ImageFilter, UnidentifiedImageError
 import pytesseract
 import io
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 
 router = APIRouter()
+
+# Create a process pool for CPU-bound OCR tasks
+# Using processes instead of threads because OCR is CPU-intensive
+_ocr_executor = ProcessPoolExecutor(max_workers=2)
 
 # Supported text file extensions for direct reading
 TEXT_FILE_EXTENSIONS = {'.txt', '.py', '.js', '.ts', '.jsx', '.tsx', '.md', '.json', 
                         '.yaml', '.yml', '.xml', '.html', '.css', '.sh', '.bash',
                         '.java', '.c', '.cpp', '.h', '.go', '.rs', '.rb', '.php'}
 
+
+def _process_image_ocr(image_bytes: bytes) -> str:
+    """
+    Heavy OCR processing - runs in separate process to avoid blocking.
+    """
+    image = Image.open(io.BytesIO(image_bytes))
+    
+    # --- PREPROCESSING ---
+    # Convert RGBA to RGB (remove alpha channel)
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
+    
+    # Invert for dark mode screenshots
+    image = ImageOps.invert(image)
+    
+    # Convert to Grayscale
+    image = image.convert('L')
+    
+    # Upscale 2x (reduced from 3x for better performance)
+    image = image.resize((image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
+    
+    # Sharpen
+    image = image.filter(ImageFilter.SHARPEN)
+
+    # Binarize
+    image = image.point(lambda x: 0 if x < 180 else 255, '1')
+    
+    # Extract Text
+    custom_config = r'--oem 3 --psm 6'
+    text = pytesseract.image_to_string(image, config=custom_config, timeout=15)
+    
+    return text.strip()
+
+
 @router.post("/ocr")
-def extract_text(file: UploadFile = File(...)):
+async def extract_text(file: UploadFile = File(...)):
     """
     Upload an image and extract text using OCR.
-    Note: 'async def' removed to run this in a threadpool (OCR is blocking).
+    Runs in a separate process to avoid blocking the event loop.
     """
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Invalid file type")
         
     try:
-        # 1. Read file
-        contents = file.file.read()
-        image = Image.open(io.BytesIO(contents))
+        # Read file bytes
+        contents = await file.read()
+        
+        # Run OCR in process pool (non-blocking)
+        loop = asyncio.get_event_loop()
+        text = await loop.run_in_executor(_ocr_executor, _process_image_ocr, contents)
 
-        # --- PREPROCESSING START ---
-        # Convert RGBA to RGB (remove alpha channel) - required for ImageOps.invert
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        
-        # Invert for dark mode screenshots
-        image = ImageOps.invert(image)
-        
-        # Convert to Grayscale (removes colored syntax highlighting which confuses OCR)
-        image = image.convert('L')
-        
-        # Upscale 3x for better character recognition (increased from 2x)
-        image = image.resize((image.width * 3, image.height * 3), Image.Resampling.LANCZOS)
-        
-        # Sharpen the image to make text edges clearer
-        image = image.filter(ImageFilter.SHARPEN)
-
-        # Binarize: Force everything to pure black and white
-        # 180 is the threshold; adjust 150-200 depending on background darkness.
-        image = image.point(lambda x: 0 if x < 180 else 255, '1')
-        # --- PREPROCESSING END ---
-
-        # 2. Extract Text
-        # --psm 6: Assumes a single uniform block of text (good for code)
-        # --oem 3: LSTM neural network engine
-        custom_config = r'--oem 3 --psm 6'
-        
-        text = pytesseract.image_to_string(image, config=custom_config, timeout=10)
-
-        return PlainTextResponse(content=text.strip())
+        return PlainTextResponse(content=text)
 
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Invalid image format")
