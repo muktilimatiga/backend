@@ -1,16 +1,24 @@
 from . import BaseModel, Optional, List, HttpUrl
 
+class TicketItem(BaseModel):
+    ref_id: Optional[str] = None
+    date_created: Optional[str] = None
+    description: Optional[str] = None
+    action: Optional[str] = None
+
 class Customer(BaseModel):
     id: str
     name: Optional[str] = None
     address: Optional[str] = None
     user_pppoe: Optional[str] = None
     package: Optional[str] = None
-    coordinate: Optional[str] = None
     user_join: Optional[str] = None
-    mobile: Optional[str] = None
+    maps_link: Optional[str] = None
+    wa_link: Optional[str] = None
     last_payment: Optional[str] = None
     detail_url: Optional[HttpUrl] = None
+    invoices: Optional[str] = None
+    tickets: Optional[List[TicketItem]] = None
 
 class DataPSB(BaseModel):
     name: Optional[str] = None

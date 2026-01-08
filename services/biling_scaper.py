@@ -11,6 +11,7 @@ import urllib3
 from bs4 import BeautifulSoup
 
 from core import settings
+from schemas.customers_scrapper import Customer, TicketItem
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -82,6 +83,26 @@ class BillingScraper:
             return m.group(0), dt.month, dt.year
         except Exception:
             return m.group(0), None, None
+    
+    @staticmethod
+    def _parser_whatsapp_url(mobile: str) -> Optional[str]:
+        if not mobile:
+            return None
+        clean_number = mobile.strip()
+        if clean_number == "0":
+            return None
+        
+        return f"https://wa.me/{clean_number}"
+
+    @staticmethod
+    def _parser_maps_url(coordinate: str) -> Optional[str]:
+        if not coordinate:
+            return None
+        clean_coordinate = coordinate.strip()
+        if clean_coordinate == "0":
+            return None
+        
+        return f"https://www.google.com/maps?q={clean_coordinate}"
 
     def search(self, search_value: str) -> List[Dict]:
         search_payload = {"type_cari": search_value, "cari_tagihan": ""}
@@ -210,6 +231,71 @@ class BillingScraper:
                     return m.group(1), ta_text
             return None, ta_text
         return None, None
+    
+    def parse_tickets(self, html_content: str) -> List[TicketItem]:
+        soup = BeautifulSoup(html_content, "html.parser")
+        tickets = []
+
+        # Iterate through the table rows
+        rows = soup.select("table.table-bordered tbody tr")
+
+        for row in rows:
+            cols = row.find_all("td")
+            if len(cols) < 4:
+                continue
+
+            # --- 1. Basic Info ---
+            ref_id = cols[0].get_text(strip=True)
+            
+            # Only include tickets that start with "TN"
+            if not ref_id.startswith("TN"):
+                continue
+                
+            date_created = cols[1].get_text(strip=True)
+
+            # --- 2. Modal Extraction ---
+            modal = row.find("div", class_="modal")
+            
+            ticket_description = None
+            ticket_action = None
+
+            if modal:
+                # Parse Timeline for Description and Action
+                timeline_items = modal.select(".track-order-list ul li")
+                
+                for item in timeline_items:
+                    # Get Header (Actor) and Body (Message)
+                    h5_tag = item.find("h5")
+                    header_text = h5_tag.get_text(strip=True).upper() if h5_tag else ""
+
+                    date_p = item.find("p", class_="text-muted")
+                    body_text = ""
+                    if date_p:
+                        # The content is in the paragraph immediately following the date
+                        detail_p = date_p.find_next_sibling("p", class_="text-muted")
+                        if detail_p:
+                            body_text = detail_p.get_text(strip=True)
+
+                    # --- LOGIC ---
+
+                    # 1. Description: Comes from "OPENED"
+                    if "OPENED" in header_text and not ticket_description:
+                        ticket_description = body_text
+
+                    # 2. Action: Only capture if closed by TECHNICIAN or NOC
+                    # This explicitly ignores "CLOSED BY CS"
+                    if "CLOSED BY TECHNICIAN" in header_text or "CLOSED BY NOC" in header_text:
+                        ticket_action = body_text
+
+            # Append result
+            tickets.append(TicketItem(
+                ref_id=ref_id,
+                date_created=date_created,
+                description=ticket_description or "N/A", 
+                action=ticket_action or "Pending/Check Timeline"
+            ))
+
+        return tickets
 
     def get_invoice_data(self, url: str) -> dict:
         try:
@@ -380,6 +466,108 @@ class BillingScraper:
                 "last_paid_month": last_paid
             }
         }
+
+    def get_customer_details(self, customer_id: str) -> dict:
+        url = settings.DETAIL_URL_BILLING.format(id=customer_id)
+
+        try:
+            res = self.session.get(url, verify=False, timeout=15)
+            res.raise_for_status()
+        except requests.RequestException as e:
+            print(f"Failed to fetch customer details: {e}")
+            return None
+
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        # --- A. Basic Profile Info ---
+        # Name is in the h4 tag inside the profile card [cite: 64]
+        # Address is in the paragraph immediately following the name [cite: 64]
+        profile_box = soup.select_one("div.card-box.text-center")
+        name = "N/A"
+        address = "N/A"
+        
+        if profile_box:
+            name_tag = profile_box.find("h4", class_="mb-0")
+            if name_tag:
+                name = name_tag.get_text(strip=True)
+            
+            addr_tag = profile_box.find("p", class_="text-muted")
+            if addr_tag:
+                address = addr_tag.get_text(strip=True)
+
+        # --- B. Key-Value Profile Details ---
+        # These are stored in <p> tags with <strong> labels inside div.text-left.mt-3 [cite: 67-69]
+        def get_profile_value(label_text):
+            # Find the strong tag containing the label
+            label = soup.find("strong", string=lambda t: t and label_text in t)
+            if label:
+                # The value is in the next <span> sibling [cite: 67-69]
+                value_span = label.find_next_sibling("span")
+                if value_span:
+                    return value_span.get_text(strip=True)
+            return None
+
+        user_join = get_profile_value("User Join")
+        # 'No Internet' in the HTML maps to 'user_pppoe' or 'id' in your model [cite: 68]
+        user_pppoe = get_profile_value("No Internet") 
+        mobile = get_profile_value("Mobile")
+        package = get_profile_value("Paket")
+        last_payment = get_profile_value("Last Payment")
+
+        # --- C. Coordinate ---
+        # Explicitly stored in <input name="coordinat"> in the settings tab 
+        coord_input = soup.find("input", {"name": "coordinat"})
+        coordinate = coord_input.get("value", "").strip() if coord_input else None
+        wa_link = BillingScraper._parser_whatsapp_url(mobile)
+        maps_link = BillingScraper._parser_maps_url(coordinate)
+
+        # --- D. Detail URL (Payment Link) ---
+        # The link is hidden inside the textarea of the "BC WA" modal for the LATEST invoice 
+        detail_url = None
+        invoices = None
+        
+        # 1. Find the first timeline item (latest invoice) 
+        latest_invoice_item = soup.select_one("ul.timeline-sm li.timeline-sm-item")
+        
+        if latest_invoice_item:
+            # 2. Find the "BC WA" button to get the target modal ID (e.g., #modaleditt75466) 
+            wa_button = latest_invoice_item.select_one("button[data-target^='#modaleditt']")
+            
+            if wa_button:
+                modal_id = wa_button.get("data-target")
+                # 3. Find the modal by ID
+                modal = soup.select_one(modal_id)
+                
+                if modal:
+                    # 4. Extract text from the textarea [cite: 94]
+                    textarea = modal.find("textarea", {"name": "deskripsi_edit"})
+                    if textarea:
+                        invoices = textarea.get_text()
+                        # 5. Use Regex to find the https payment link
+                        # Looks for: Link Payment : https://payment.lexxadata.net.id/?id=... [cite: 95]
+                        match = re.search(r'(https://payment\.lexxadata\.net\.id/\?id=[\w-]+)', invoices)
+                        if match:
+                            detail_url = match.group(1)
+        
+        tickets = self.parse_tickets(res.text)
+
+        # Return the populated model
+        return Customer(
+            id=customer_id,
+            name=name,
+            address=address,
+            user_pppoe=user_pppoe,
+            package=package,
+            coordinate=coordinate,
+            user_join=user_join,
+            mobile=mobile,
+            last_payment=last_payment,
+            detail_url=detail_url,
+            invoices=invoices,
+            wa_link=wa_link,
+            maps_link=maps_link,
+            tickets=tickets
+        )
 
 
 class NOCScrapper:

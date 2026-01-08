@@ -22,134 +22,38 @@ def get_billing() -> BillingScraper:
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=f"Billing unavailable: {e}")
 
-async def get_customer_data(query: str = Query(..., min_length=1),
-    billing_scraper: BillingScraper = Depends(get_billing),
-):
-    customers = billing_scraper.search(query)
-    if not customers:
-        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
-    
-    result = []
-    for customer in customers:
-        if cid := customer.get("id"):
-            detail_url = settings.DETAIL_URL_BILLING.format(cid)
-            invoice_payload = billing_scraper.get_invoice_data(detail_url)
-            
-            # Extract description from first invoice
-            invoices = invoice_payload.get("invoices", [])
-            description = invoices[0].get("description") if invoices else None
-            
-            # Extract last_payment from summary
-            summary = invoice_payload.get("summary", {})
-            last_payment = summary.get("last_paid_month")
-            
-            result.append(CustomerBillingInfo(
-                name=customer.get("name"),
-                address=customer.get("address"),
-                user_pppoe=customer.get("user_pppoe"),
-                last_payment=last_payment,
-                description=description,
-            ))
-    return result
-    
-
 # Endpoint show psb avaible
 @router.get("/psb", response_model=List[DataPSB])
 def get_psb_data(scraper: NOCScrapper = Depends(get_scraper)):
     return scraper._get_data_psb()
 
-# Endpoint send invoices
-@router.get("/invoices", response_model=List[CustomerBillingInfo])
-# def get_customer_invoices(
-#     query: str = Query(..., min_length=1),
-#     billing_scraper: BillingScraper = Depends(get_billing),
-# ):
-#     customers = billing_scraper.search(query)
-#     if not customers:
-#         raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
-    
-#     results = []
-#     for customer in customers:
-#         if cid := customer.get("id"):
-#             detail_url = settings.DETAIL_URL_BILLING.format(cid)
-#             invoice_payload = billing_scraper.get_invoice_data(detail_url)
-            
-#             # Extract description from first invoice
-#             invoices = invoice_payload.get("invoices", [])
-#             description = billing_scraper.get_invoice_data(detail_url)
-            
-#             # Extract last_payment from summary
-#             summary = invoice_payload.get("summary", {})
-#             last_payment = summary.get("last_paid_month")
-            
-#             results.append(CustomerBillingInfo(
-#                 name=customer.get("name"),
-#                 address=customer.get("address"),
-#                 user_pppoe=customer.get("user_pppoe"),
-#                 last_payment=last_payment,
-#                 description=description,
-#             ))
-#     return results
-
-# Get location coordinates and package
-@router.get("/customers-billing", response_model=List[CustomerwithInvoices])
-def get_customer_details(
+@router.get("/customers-billing", response_model=List[Customer])
+def get_customer_details_route(
     query: str = Query(..., min_length=1),
     billing_scraper: BillingScraper = Depends(get_billing),
 ):
-    customers = billing_scraper.search(query)
-    if not customers:
-        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
-    for customer in customers:
-        if cid := customer.get("id"):
-            detail_url = settings.DETAIL_URL_BILLING.format(cid)
-            invoice_payload = billing_scraper.get_invoice_data(detail_url)
-            customer.update(invoice_payload)
-            customer["detail_url"] = detail_url
-    return customers
-
-
-# Get customer info only (no invoices) - coordinate, user_join, mobile, paket
-@router.get("/customers-info")
-def get_customer_info(
-    query: str = Query(..., min_length=1),
-    billing_scraper: BillingScraper = Depends(get_billing),
-):
-    """Get customer info without invoice data - faster for basic lookups."""
-    customers = billing_scraper.search(query)
-    if not customers:
-        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
+    # 1. Search for customers to get their IDs
+    search_results = billing_scraper.search(query)
     
-    results = []
-    for customer in customers:
-        if cid := customer.get("id"):
-            detail_url = settings.DETAIL_URL_BILLING.format(cid)
-            # Get invoice data to extract customer info
-            invoice_payload = billing_scraper.get_invoice_data(detail_url)
+    if not search_results:
+        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
+
+    detailed_customers = []
+
+    # 2. Iterate through search results and fetch full details for each
+    for result in search_results:
+        cid = result.get("id")
+        if cid:
+            customer_obj = billing_scraper.get_customer_details(cid)
             
-            # Format coordinate as Google Maps URL
-            coordinate = invoice_payload.get("coordinate")
-            maps_url = None
-            if coordinate:
-                maps_url = f"https://www.google.com/maps/search/?api=1&query={coordinate}"
-            
-            # Format mobile as WhatsApp URL
-            mobile = invoice_payload.get("mobile")
-            wa_url = None
-            if mobile:
-                wa_url = f"https://wa.me/{mobile}"
-            
-            results.append({
-                "nama": customer.get("name"),
-                "alamat": customer.get("address"),
-                "user_pppoe": customer.get("user_pppoe"),
-                "paket": invoice_payload.get("paket"),
-                "maps": maps_url,
-                "mobile": wa_url,
-                "last_payment": invoice_payload.get("summary", {}).get("last_paid_month"),
-                "user_join": invoice_payload.get("user_join"),
-            })
-    return results
+            if customer_obj:
+                detailed_customers.append(customer_obj)
+
+    if not detailed_customers:
+        raise HTTPException(status_code=404, detail="Found customers but failed to retrieve details.")
+
+    return detailed_customers
+
 
 
 @router.get("/customers-data", response_model=List[CustomerData])
@@ -157,21 +61,28 @@ async def get_customer_data(
     search: str = Query(..., min_length=1, description="Search by name, address, or pppoe")
 ):
     """Get customer data from Supabase."""
+    def _clean_field(value: any) -> Optional[str]:
+        if not value: return None
+        clean_value = str(value).strip()
+        if clean_value in ("", "0", "-", "N/A"):  
+            return None
+        return clean_value
     try:
         customers = search_customers(search)
-        
-        # Map to CustomerData schema
+        if not customers:
+            raise HTTPException(status_code=404, detail=f"No customer found for query: '{search}'")
         result = []
+        
         for c in customers:
             result.append(CustomerData(
                 name=c.get("nama", "Unknown"),
-                address=c.get("alamat", ""),
+                address=_clean_field(c.get("alamat", "")),
                 pppoe_user=c.get("user_pppoe", ""),
-                pppoe_password=c.get("pppoe_password", ""),
-                olt_name=c.get("olt_name", ""),
-                interface=c.get("interface", ""),
-                onu_sn=c.get("onu_sn", ""),
-                modem_type=c.get("modem_type", ""),
+                pppoe_password=_clean_field(c.get("pppoe_password", "")),
+                olt_name=_clean_field(c.get("olt_name", "")),
+                interface=_clean_field(c.get("interface", "")),
+                onu_sn=_clean_field(c.get("onu_sn", "")),
+                modem_type=_clean_field(c.get("modem_type", "")),
             ))
         return result
     except Exception as e:
