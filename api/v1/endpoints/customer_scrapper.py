@@ -1,11 +1,11 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from core import settings
 from schemas.config_handler import CustomerData
-from schemas.customers_scrapper import DataPSB, CustomerwithInvoices, Customer
+from schemas.customers_scrapper import DataPSB, CustomerwithInvoices, Customer, CustomerBillingInfo
 from services.biling_scaper import BillingScraper, NOCScrapper
-from services.supabase_client import get_customers_view, search_customers
+from services.supabase_client import search_customers
 
 router = APIRouter()
 
@@ -15,11 +15,43 @@ def get_scraper() -> NOCScrapper:
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=f"NMS unavailable: {e}")
 
-def get_billing(nms: NOCScrapper = Depends(get_scraper)) -> BillingScraper:
+def get_billing() -> BillingScraper:
+    """Create BillingScraper with its own session - billing requires separate auth from NMS."""
     try:
-        return BillingScraper(session=nms.session)
+        return BillingScraper()  # Let it create its own session and login to billing
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=f"Billing unavailable: {e}")
+
+async def get_customer_data(query: str = Query(..., min_length=1),
+    billing_scraper: BillingScraper = Depends(get_billing),
+):
+    customers = billing_scraper.search(query)
+    if not customers:
+        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
+    
+    result = []
+    for customer in customers:
+        if cid := customer.get("id"):
+            detail_url = settings.DETAIL_URL_BILLING.format(cid)
+            invoice_payload = billing_scraper.get_invoice_data(detail_url)
+            
+            # Extract description from first invoice
+            invoices = invoice_payload.get("invoices", [])
+            description = invoices[0].get("description") if invoices else None
+            
+            # Extract last_payment from summary
+            summary = invoice_payload.get("summary", {})
+            last_payment = summary.get("last_paid_month")
+            
+            result.append(CustomerBillingInfo(
+                name=customer.get("name"),
+                address=customer.get("address"),
+                user_pppoe=customer.get("user_pppoe"),
+                last_payment=last_payment,
+                description=description,
+            ))
+    return result
+    
 
 # Endpoint show psb avaible
 @router.get("/psb", response_model=List[DataPSB])
@@ -27,21 +59,37 @@ def get_psb_data(scraper: NOCScrapper = Depends(get_scraper)):
     return scraper._get_data_psb()
 
 # Endpoint send invoices
-@router.get("/invoices", response_model=List[CustomerwithInvoices])
-def get_fast_customer_details(
-    query: str = Query(..., min_length=1),
-    billing_scraper: BillingScraper = Depends(get_billing),
-):
-    customers = billing_scraper.search(query)
-    if not customers:
-        raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
-    for customer in customers:
-        if cid := customer.get("id"):
-            detail_url = settings.DETAIL_URL_BILLING.format(cid)
-            invoice_payload = billing_scraper.get_invoice_data(detail_url)
-            customer.update(invoice_payload)
-            customer["detail_url"] = detail_url
-    return customers
+@router.get("/invoices", response_model=List[CustomerBillingInfo])
+# def get_customer_invoices(
+#     query: str = Query(..., min_length=1),
+#     billing_scraper: BillingScraper = Depends(get_billing),
+# ):
+#     customers = billing_scraper.search(query)
+#     if not customers:
+#         raise HTTPException(status_code=404, detail=f"No customer found for query: '{query}'")
+    
+#     results = []
+#     for customer in customers:
+#         if cid := customer.get("id"):
+#             detail_url = settings.DETAIL_URL_BILLING.format(cid)
+#             invoice_payload = billing_scraper.get_invoice_data(detail_url)
+            
+#             # Extract description from first invoice
+#             invoices = invoice_payload.get("invoices", [])
+#             description = billing_scraper.get_invoice_data(detail_url)
+            
+#             # Extract last_payment from summary
+#             summary = invoice_payload.get("summary", {})
+#             last_payment = summary.get("last_paid_month")
+            
+#             results.append(CustomerBillingInfo(
+#                 name=customer.get("name"),
+#                 address=customer.get("address"),
+#                 user_pppoe=customer.get("user_pppoe"),
+#                 last_payment=last_payment,
+#                 description=description,
+#             ))
+#     return results
 
 # Get location coordinates and package
 @router.get("/customers-billing", response_model=List[CustomerwithInvoices])
@@ -106,21 +154,18 @@ def get_customer_info(
 
 @router.get("/customers-data", response_model=List[CustomerData])
 async def get_customer_data(
-    search: Optional[str]= Query(None, description="Search by name, address, or pppoe")
+    search: str = Query(..., min_length=1, description="Search by name, address, or pppoe")
 ):
     """Get customer data from Supabase."""
     try:
-        if search:
-            customers = search_customers(search)
-        else:
-            customers = get_customers_view()
+        customers = search_customers(search)
         
         # Map to CustomerData schema
         result = []
         for c in customers:
             result.append(CustomerData(
                 name=c.get("nama", "Unknown"),
-                alamat=c.get("alamat", ""),
+                address=c.get("alamat", ""),
                 pppoe_user=c.get("user_pppoe", ""),
                 pppoe_password=c.get("pppoe_password", ""),
                 olt_name=c.get("olt_name", ""),

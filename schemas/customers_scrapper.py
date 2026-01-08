@@ -5,9 +5,11 @@ class Customer(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
     user_pppoe: Optional[str] = None
+    package: Optional[str] = None
     coordinate: Optional[str] = None
     user_join: Optional[str] = None
     mobile: Optional[str] = None
+    last_payment: Optional[str] = None
     detail_url: Optional[HttpUrl] = None
 
 class DataPSB(BaseModel):
@@ -39,3 +41,11 @@ class CustomerwithInvoices(Customer):
 
     class Config:
         from_attributes = True
+
+class CustomerBillingInfo(BaseModel):
+    """Simplified customer billing info for quick lookups."""
+    name: Optional[str] = None
+    address: Optional[str] = None
+    user_pppoe: Optional[str] = None
+    last_payment: Optional[str] = None
+    description: Optional[str] = None
