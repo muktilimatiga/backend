@@ -16,13 +16,13 @@ class CustomerInfo(BaseModel):
 
 class CustomerData(BaseModel):
     name: str
-    address: str
-    pppoe_user: str
-    pppoe_password: str
-    olt_name: str
-    interface: str
-    onu_sn: str
-    modem_type: str
+    address: Optional[str] = None
+    pppoe_user: Optional[str] = None
+    pppoe_password: Optional[str] = None
+    olt_name: Optional[str] = None
+    interface: Optional[str] = None
+    onu_sn: Optional[str] = None
+    modem_type: Optional[str] = None
     
 class ConfigurationRequest(BaseModel):
     sn: str
