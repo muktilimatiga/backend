@@ -58,8 +58,11 @@ class OnuDetailRequest(BaseModel):
 class OnuDetailResponse(BaseModel):
     result: str
 
+class OnuDbaResponse(BaseModel):
+    result: float
+
 class OnuFullResponse(BaseModel):
-    detail_data:str
+    detail_data: str
     attenuation_data: str
     
 class CustomerOnuDetail(BaseModel):
@@ -100,3 +103,11 @@ class RegistSnResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+class LockEthRequest(BaseModel):
+    interface: str
+    olt_name: str
+    is_unlocked: bool
+
+class LockEthResponse(BaseModel):
+    status: str

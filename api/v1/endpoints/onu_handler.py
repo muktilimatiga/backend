@@ -1,3 +1,4 @@
+from schemas.onu_handler import OnuDbaResponse
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 import re
@@ -5,7 +6,7 @@ import asyncio
 
 from core import settings, OLT_OPTIONS, get_olt_info
 from schemas.onu_handler import (
-    OnuDetailRequest, OnuDetailResponse, OnuFullResponse
+    OnuDetailRequest, OnuDetailResponse, OnuDbaResponse, LockEthRequest, LockEthResponse
 )
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
@@ -207,7 +208,7 @@ async def cek_eth(olt_name: str, request: OnuDetailRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{olt_name}/onu/get-dba", response_model=OnuDetailResponse)
+@router.post("/{olt_name}/onu/get-dba", response_model=OnuDbaResponse)
 async def get_dba(olt_name: str, request: OnuDetailRequest):
     olt_info = get_olt_info(olt_name)
     if not olt_info:
@@ -222,11 +223,74 @@ async def get_dba(olt_name: str, request: OnuDetailRequest):
         )
         
         base_interface = _parse_interface(request.interface)
-        data = await handler.get_onu_dba(base_interface)
+        data = await handler.get_dba_rate(base_interface)
 
-        return OnuDetailResponse(result=data)
+        return OnuDbaResponse(result=data)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/{olt_name}/onu/get-eth")
+async def get_eth(olt_name: str, request: OnuDetailRequest):
+    olt_info = get_olt_info(olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {olt_name} tidak ditemukan!")
     
+    try:
+        handler = await olt_manager.get_connection(
+            host=olt_info["ip"],
+            username=settings.OLT_USERNAME,
+            password=settings.OLT_PASSWORD,
+            is_c600=olt_info["c600"]
+        )
+        
+        data = await handler.get_eth_port_statuses(request.interface)
+
+        # Returns list of dicts: [{interface, is_unlocked, speed_status, lan_detected, speed_mbps}, ...]
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{olt_name}/onu/get-running-config")
+async def get_running_config(olt_name: str, request: OnuDetailRequest):
+    olt_info = get_olt_info(olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {olt_name} tidak ditemukan!")
+    
+    try:
+        handler = await olt_manager.get_connection(
+            host=olt_info["ip"],
+            username=settings.OLT_USERNAME,
+            password=settings.OLT_PASSWORD,
+            is_c600=olt_info["c600"]
+        )
+        
+        data = await handler.get_running_config(request.interface)
+
+        # Returns {"running_config": "...", "onu_running_config": "..."}
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/{olt_name}/onu/lock-eth", response_model=LockEthResponse)
+async def lock_eth(olt_name: str, request: LockEthRequest):
+    olt_info = get_olt_info(olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {olt_name} tidak ditemukan!")
+    
+    try:
+        handler = await olt_manager.get_connection(
+            host=olt_info["ip"],
+            username=settings.OLT_USERNAME,
+            password=settings.OLT_PASSWORD,
+            is_c600=olt_info["c600"]
+        )
+        
+        data = await handler.edit_eth_port(request.interface, request.is_unlocked)
+
+        return LockEthResponse(status=data)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

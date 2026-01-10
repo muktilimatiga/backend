@@ -59,6 +59,19 @@ class TelnetClient:
             return interface
         prefix = "gpon_onu-" if self.is_c600 else "gpon-onu_"
         return f"{prefix}{interface}"
+    
+    def _format_vport_interface(self, interface: str) -> str:
+        """
+        Format interface with vport prefix.
+        Example: 1/2/1:2 -> vport-1/2/1.2:1
+        The ':' becomes '.' and ':1' is always appended.
+        """
+        if interface.startswith("vport"):
+            return interface
+        # Replace ':' with '.' and append ':1'
+        formatted = interface.replace(":", ".")
+        logging.info(f"Formatted interface: {formatted}")
+        return f"vport-{formatted}:1"
 
     @staticmethod
     def _parse_onu_id(interface: str) -> int:
@@ -375,6 +388,7 @@ class TelnetClient:
             })
             
         return results
+
     
     # MAIN ONU COMMNAD
         
@@ -514,6 +528,27 @@ class TelnetClient:
         except Exception as e:
             logging.error(f"Failed to check port statuses for {full_interface}: {e}")
             return []
+        
+    async def edit_eth_port(self, interface: str, is_unlocked: bool) -> str:
+        """
+        Edit port lock/unlock for all 4 ethernet ports.
+        Args:
+            interface: ONU interface (e.g., "gpon-onu_1/1/1:1")
+            is_unlocked: True = unlock all ports, False = lock all ports
+        """
+        full_interface = self._format_onu_interface(interface)
+        state = "unlock" if is_unlocked else "lock"
+        commands = self._config_interface_commands(full_interface)
+        commands.extend(self._get_action_commands("edit_port", interface=full_interface, state=state))
+
+        try:
+            for cmd in commands:
+                await self._execute_command(cmd)
+            logging.info(f"Edited port lock/unlock on {full_interface}")
+            return "Edit port lock/unlock berhasil"
+        except Exception as e:
+            logging.error(f"Failed to edit port lock/unlock on {full_interface}: {e}")
+            return f"Edit port lock/unlock gagal: {e}"
             
     async def get_onu_ip_host(self, interface: str) -> str:
         """
@@ -532,6 +567,34 @@ class TelnetClient:
         except Exception as e:
             logging.error(f"Failed to get IP host for {full_interface}: {e}")
             return "0.0.0.0"
+        
+    async def get_running_config(self, interface: str) -> dict:
+        """
+        Cek running config ONU, onu running config.
+        Returns dict with:
+        - running_config: output from "show running-config interface"
+        - onu_running_config: output from "show onu running config"
+        """
+        full_interface = self._format_onu_interface(interface)
+        vport_interface = self._format_vport_interface(interface)
+        commands = self._get_action_commands("running_config", interface=full_interface, vport_interface=vport_interface)
+
+        try:
+            outputs = []
+            for cmd in commands:
+                output = await self._execute_command(cmd)
+                outputs.append(output)
+            
+            logging.info(f"Get running config for {full_interface}")
+            
+            # Return as separate keys
+            return {
+                "running_config": outputs[0] if len(outputs) > 0 else "",
+                "onu_running_config": outputs[1] if len(outputs) > 1 else ""
+            }
+        except Exception as e:
+            logging.error(f"Failed to get running config for {full_interface}: {e}")
+            return {"running_config": "", "onu_running_config": ""}
     
     async def get_onu_dba(self, interface: str) -> str:
         """
@@ -717,17 +780,18 @@ class TelnetClient:
         if calculation > 128:
             raise ValueError(f"Port PON {interface} penuh.")
         
-        logging.info(f"✅ Onu ID kosong ditemukan pada {interface}:{calculation}")
+        logging.info(f"Onu ID kosong ditemukan pada {interface}:{calculation}")
         return calculation
 
     async def get_dba_rate(self, interface: str) -> float:
         # The command to check bandwidth
-        command = f"show pon bandwidth dba interface {interface}"
+        full_interface = self._format_olt_interface(interface)
+        command = f"show pon bandwidth dba interface {full_interface}"
         
         output = await self._execute_command(command) 
         
         # Debug log to see what the script actually saw
-        logging.info(f"DBA OUTPUT RAW: {output}")
+        logging.info(f"DBA OUTPUT RAW: {output} || {command}")
 
         # Find all rates from lines containing the interface
         # Format: interface | channel | configured(kbps) | free(kbps) | rate(x.x%)

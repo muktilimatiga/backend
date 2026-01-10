@@ -13,6 +13,8 @@ class Customer(BaseModel):
     user_pppoe: Optional[str] = None
     package: Optional[str] = None
     user_join: Optional[str] = None
+    mobile: Optional[str] = None
+    coordinate: Optional[str] = None
     maps_link: Optional[str] = None
     wa_link: Optional[str] = None
     last_payment: Optional[str] = None

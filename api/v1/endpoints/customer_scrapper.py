@@ -55,7 +55,6 @@ def get_customer_details_route(
     return detailed_customers
 
 
-
 @router.get("/customers-data", response_model=List[CustomerData])
 async def get_customer_data(
     search: str = Query(..., min_length=1, description="Search by name, address, or pppoe")

@@ -525,29 +525,39 @@ class BillingScraper:
         # The link is hidden inside the textarea of the "BC WA" modal for the LATEST invoice 
         detail_url = None
         invoices = None
+        invoice_links = []  # Collect ALL payment links
         
-        # 1. Find the first timeline item (latest invoice) 
-        latest_invoice_item = soup.select_one("ul.timeline-sm li.timeline-sm-item")
+        # Get ALL timeline items (invoices)
+        all_invoice_items = soup.select("ul.timeline-sm li.timeline-sm-item")
         
-        if latest_invoice_item:
-            # 2. Find the "BC WA" button to get the target modal ID (e.g., #modaleditt75466) 
-            wa_button = latest_invoice_item.select_one("button[data-target^='#modaleditt']")
+        for idx, invoice_item in enumerate(all_invoice_items):
+            # Find the "BC WA" button to get the target modal ID
+            wa_button = invoice_item.select_one("button[data-target^='#modaleditt']")
             
             if wa_button:
                 modal_id = wa_button.get("data-target")
-                # 3. Find the modal by ID
                 modal = soup.select_one(modal_id)
                 
                 if modal:
-                    # 4. Extract text from the textarea [cite: 94]
                     textarea = modal.find("textarea", {"name": "deskripsi_edit"})
                     if textarea:
-                        invoices = textarea.get_text()
-                        # 5. Use Regex to find the https payment link
-                        # Looks for: Link Payment : https://payment.lexxadata.net.id/?id=... [cite: 95]
-                        match = re.search(r'(https://payment\.lexxadata\.net\.id/\?id=[\w-]+)', invoices)
+                        ta_text = textarea.get_text()
+                        # Find payment link in textarea
+                        match = re.search(r'(https://payment\.lexxadata\.net\.id/\?id=[\w-]+)', ta_text)
                         if match:
-                            detail_url = match.group(1)
+                            link = match.group(1)
+                            invoice_links.append(link)
+                            # First one is the latest (detail_url)
+                            if idx == 0:
+                                detail_url = link
+                                invoices = ta_text
+            
+            # Also check for direct input with payment link
+            link_input = invoice_item.select_one("input[value^='https://payment.lexxadata.net.id']")
+            if link_input:
+                link = link_input.get("value")
+                if link and link not in invoice_links:
+                    invoice_links.append(link)
         
         tickets = self.parse_tickets(res.text)
 
@@ -562,7 +572,7 @@ class BillingScraper:
             user_join=user_join,
             mobile=mobile,
             last_payment=last_payment,
-            detail_url=detail_url,
+            detail_url=detail_url,  # None if no payment link found
             invoices=invoices,
             wa_link=wa_link,
             maps_link=maps_link,

@@ -88,13 +88,8 @@ COMMAND_TEMPLATES = {
     },
     # Runnin confing
     "running_config": {
-        "c300": ["show running-config interface {interface}"],
-        "c600": ["show running-config interface {interface}"],
-    },
-    # Onu runnging config
-    "onu_running_config": {
-        "c300": ["show onu running-config {interface}"],
-        "c600": ["show onu running-config-interface {interface}"],
+        "c300": ["show running-config interface {interface}", "show onu running config {interface}"],
+        "c600": ["show running-config-interface {interface}", "show running-config-interface {vport_interface}"],
     },
     # Cek IP
     "cek_ip": {
@@ -121,5 +116,24 @@ COMMAND_TEMPLATES = {
     "cek_state_olt" : {
         "c300" : ["show gpon onu state"],
         "c600" : ["show gpon onu state"]
+    },
+    # Edit ethernet port lock/unlock (all 4 ports)
+    "edit_port": {
+        "c300": [
+            "pon-onu-mng {interface}",
+            "interface eth eth_0/1 state {state}",
+            "interface eth eth_0/2 state {state}",
+            "interface eth eth_0/3 state {state}",
+            "interface eth eth_0/4 state {state}",
+            "exit"
+        ],
+        "c600": [
+            "pon-onu-mng {interface}",
+            "interface eth eth_0/1 state {state}",
+            "interface eth eth_0/2 state {state}",
+            "interface eth eth_0/3 state {state}",
+            "interface eth eth_0/4 state {state}",
+            "exit"
+        ],
     }
 }
