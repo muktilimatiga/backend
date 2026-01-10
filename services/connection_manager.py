@@ -25,19 +25,22 @@ class ConnectionManager:
         except RuntimeError:
             pass  # No running loop
 
-    async def get_connection(self, host, username, password, is_c600) -> TelnetClient:
+    async def get_connection(self, host, username, password, is_c600, olt_name: str = "") -> TelnetClient:
         # First, check if event loop changed and clear stale connections
         self._check_loop_change()
         
         if host in self._connections:
             client = self._connections[host]
             if client.writer and not client.writer.is_closing():
+                # Update olt_name in case it changed or wasn't set before
+                if olt_name:
+                    client.olt_name = olt_name
                 return client
             else:
                 del self._connections[host]
 
         logging.info(f"✨ Membuat session object baru untuk {host}")
-        client = TelnetClient(host, username, password, is_c600)
+        client = TelnetClient(host, username, password, is_c600, olt_name)
         
         await client.connect()
         

@@ -588,7 +588,7 @@ class NOCScrapper:
 
     def _is_logged_in(self) -> bool:
         try:
-            r = self.session.get(settings.LOGIN_URL, verify=False, allow_redirects=False, timeout=10)
+            r = self.session.get(settings.LOGIN_URL_BILLING, verify=False, allow_redirects=False, timeout=10)
             return r.status_code == 200
         except requests.RequestException:
             return False
@@ -599,7 +599,7 @@ class NOCScrapper:
 
         payload = {"username": settings.NMS_USERNAME, "password": settings.NMS_PASSWORD}
         try:
-            r = self.session.post(settings.LOGIN_URL, data=payload, verify=False, timeout=10)
+            r = self.session.post(settings.LOGIN_URL_BILLING, data=payload, verify=False, timeout=10)
             if r.status_code not in (200, 302):
                 raise ConnectionError(f"Login failed with status code {r.status_code}")
             

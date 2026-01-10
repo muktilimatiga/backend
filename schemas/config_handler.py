@@ -22,7 +22,7 @@ class CustomerData(BaseModel):
     olt_name: str
     interface: str
     onu_sn: str
-    modem_type: str
+    modem_type: Optional[str] = None
     
 class ConfigurationRequest(BaseModel):
     sn: str

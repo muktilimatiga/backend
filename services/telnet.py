@@ -19,11 +19,12 @@ except Exception as e:
     jinja_env = None
 
 class TelnetClient:
-    def __init__(self, host: str, username: str, password: str, is_c600: bool):
+    def __init__(self, host: str, username: str, password: str, is_c600: bool, olt_name: str = ""):
         self.host = host
         self.username = username
         self.password = password
         self.is_c600 = is_c600
+        self.olt_name = olt_name
         self._lock = None
         self.reader = None
         self.writer = None
@@ -729,10 +730,10 @@ class TelnetClient:
         logging.info(f"DBA OUTPUT RAW: {output}")
 
         # Find all rates from lines containing the interface
-        # Format: interface | channel | configured | free | overflowflag | rate
-        # We want to get the GPON line (usually second line, has "GPON" in it)
+        # Format: interface | channel | configured(kbps) | free(kbps) | rate(x.x%)
+        # Example: gpon-olt_1/3/3      1(GPON)      683760           560400          55.0
         rate_regex = re.compile(
-            rf"{re.escape(interface)}\s+\S*GPON\S*\s+\d+\s+\d+\s+\S+\s+([\d.]+)",
+            rf"{re.escape(interface)}\s+\S*GPON\S*\s+\d+\s+\d+\s+([\d.]+)",
             re.IGNORECASE
         )
         
@@ -743,18 +744,17 @@ class TelnetClient:
             logging.info(f"DBA Rate found: {rate_str}%")
             return float(rate_str)
         
-        # Fallback: if GPON regex doesn't match, try to get second rate value
+        # Fallback: try simpler pattern - just get the last number on lines with the interface
         fallback_regex = re.compile(
-            rf"{re.escape(interface)}\s+\S+\s+\d+\s+\d+\s+\S+\s+([\d.]+)"
+            rf"{re.escape(interface)}\s+.*?([\d.]+)\s*$",
+            re.MULTILINE
         )
-        matches = fallback_regex.findall(output)
+        fallback_match = fallback_regex.search(output)
         
-        if len(matches) >= 2:
-            logging.info(f"DBA Rate found (fallback): {matches[1]}%")
-            return float(matches[1])
-        elif len(matches) == 1:
-            logging.info(f"DBA Rate found (fallback single): {matches[0]}%")
-            return float(matches[0])
+        if fallback_match:
+            rate_str = fallback_match.group(1)
+            logging.info(f"DBA Rate found (fallback): {rate_str}%")
+            return float(rate_str)
         
         logging.warning(f"Could not parse DBA rate for {interface}. Defaulting to 0.0")
         return 0.0

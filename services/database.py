@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any, List
 # --- Configuration ---
 POSTGRES_URI = os.getenv(
     "POSTGRES_URI",
-    "dbname=data user=root password=Noclex1965 host=localhost port=5435"
+    "dbname=data user=root password=Noclex1965 host=172.16.121.11 port=5435"
 )
 TABLE_NAME = os.getenv("POSTGRES_TABLE", "data_fiber")
 

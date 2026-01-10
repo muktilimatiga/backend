@@ -30,24 +30,60 @@ async def get_options():
 @router.get("/api/olts/{olt_name}/detect-onts", response_model=List[UnconfiguredOnt])
 async def detect_uncfg_onts(olt_name: str):
     """Mendeteksi semua unconfigured ONT pada OLT yang dipilih."""
+    import logging
+    
     olt_info = OLT_OPTIONS.get(olt_name.upper())
     if not olt_info:
         raise HTTPException(status_code=404, detail=f"OLT '{olt_name}' tidak ditemukan.")
     
-    try:
-        handler = await olt_manager.get_connection(
-            host=olt_info["ip"],
-            username=settings.OLT_USERNAME,
-            password=settings.OLT_PASSWORD,
-            is_c600=olt_info["c600"]
-        )
+    max_retries = 2
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            handler = await asyncio.wait_for(
+                olt_manager.get_connection(
+                    host=olt_info["ip"],
+                    username=settings.OLT_USERNAME,
+                    password=settings.OLT_PASSWORD,
+                    is_c600=olt_info["c600"]
+                ),
+                timeout=30  # 30 second timeout for connection
+            )
+            
+            ont_list = await asyncio.wait_for(
+                handler.find_unconfigured_onts(),
+                timeout=60  # 60 second timeout for the command
+            )
+            return ont_list
+            
+        except asyncio.TimeoutError:
+            last_error = "Timeout saat menghubungi OLT"
+            logging.warning(f"[DETECT-ONT] Attempt {attempt + 1} timeout for {olt_name}")
+            # Clear stale connection on timeout
+            if olt_info["ip"] in olt_manager._connections:
+                del olt_manager._connections[olt_info["ip"]]
+                
+        except ConnectionError as e:
+            last_error = str(e)
+            logging.warning(f"[DETECT-ONT] Attempt {attempt + 1} connection error: {e}")
+            # Clear stale connection
+            if olt_info["ip"] in olt_manager._connections:
+                del olt_manager._connections[olt_info["ip"]]
+                
+        except Exception as e:
+            last_error = str(e)
+            logging.error(f"[DETECT-ONT] Attempt {attempt + 1} error: {e}")
+            # Clear connection on any error
+            if olt_info["ip"] in olt_manager._connections:
+                del olt_manager._connections[olt_info["ip"]]
         
-        ont_list = await handler.find_unconfigured_onts()
-        return ont_list
-    except ConnectionError as e:
-        raise HTTPException(status_code=504, detail=f"Gagal terhubung ke OLT: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Terjadi error internal: {e}")
+        # Wait a bit before retry
+        if attempt < max_retries - 1:
+            await asyncio.sleep(1)
+    
+    # All retries failed
+    raise HTTPException(status_code=504, detail=f"Gagal terhubung ke OLT setelah {max_retries} percobaan: {last_error}")
 
 @router.post("/api/olts/{olt_name}/configure", response_model=ConfigurationResponse)
 async def run_configuration(olt_name: str, request: ConfigurationRequest):
@@ -62,6 +98,7 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
             username=settings.OLT_USERNAME,
             password=settings.OLT_PASSWORD,
             is_c600=olt_info["c600"],
+            olt_name=olt_name.upper(),
         )
         logs, summary = await handler.apply_configuration(request)
         
@@ -69,9 +106,9 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
         if summary["status"] == "error":
             logs.append("ERROR < Konfigurasi gagal. Lihat report untuk detail.")
         else:
-            # Save to database on success
-            from services.database import save_customer_config_async
-            db_saved = await save_customer_config_async(
+            # Save to Supabase on success
+            from services.supabase_client import save_customer_config
+            db_saved = await save_customer_config(
                 user_pppoe=request.customer.pppoe_user,
                 nama=request.customer.name,
                 alamat=request.customer.address,
@@ -82,15 +119,21 @@ async def run_configuration(olt_name: str, request: ConfigurationRequest):
                 paket=request.package,
             )
             if db_saved:
-                logs.append("INFO < Data pelanggan berhasil disimpan ke database.")
+                logs.append("INFO < Data pelanggan berhasil disimpan ke Supabase.")
             else:
-                logs.append("WARN < Gagal menyimpan ke database, konfigurasi OLT tetap berhasil.")
+                logs.append("WARN < Gagal menyimpan ke Supabase, konfigurasi OLT tetap berhasil.")
             
-        return ConfigurationResponse(
+        import logging
+        logging.info(f"[CONFIG] Summary: {summary}")
+        logging.info(f"[CONFIG] Logs count: {len(logs)}")
+        
+        response = ConfigurationResponse(
             message=summary["message"],
             summary=ConfigurationSummary(**summary),
             logs=logs
         )
+        logging.info(f"[CONFIG] Response: {response.model_dump_json()}")
+        return response
     except (ConnectionError, asyncio.TimeoutError) as e:
         # This catches connection errors BEFORE apply_configuration runs
         raise HTTPException(status_code=504, detail=f"Gagal terhubung ke OLT: {e}")
