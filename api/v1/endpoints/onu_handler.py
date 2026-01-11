@@ -6,7 +6,7 @@ import asyncio
 
 from core import settings, OLT_OPTIONS, get_olt_info
 from schemas.onu_handler import (
-    OnuDetailRequest, OnuDetailResponse, OnuDbaResponse, LockEthRequest, LockEthResponse
+    OnuDetailRequest, OnuDetailResponse, OnuDbaResponse, LockEthRequest, LockEthResponse, EditCapacityRequest, EditCapacityResponse
 )
 from services.telnet import TelnetClient
 from services.connection_manager import olt_manager
@@ -294,3 +294,25 @@ async def lock_eth(olt_name: str, request: LockEthRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("{olt_name}/onu/edit-capacity", response_model=EditCapacityResponse)
+async def edit_capacity(olt_name: str, request: EditCapacityRequest):
+    olt_info = get_olt_info(olt_name)
+    if not olt_info:
+        raise HTTPException(status_code=404, detail=f"OLT {olt_name} tidak ditemukan!")
+    
+    try:
+        handler = await olt_manager.get_connection(
+            host=olt_info["ip"],
+            username=settings.OLT_USERNAME,
+            password=settings.OLT_PASSWORD,
+            is_c600=olt_info["c600"]
+        )
+        
+        data = await handler.edit_capacity(request.interface, request.new_capacity)
+
+        return EditCapacityResponse(status=data)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    

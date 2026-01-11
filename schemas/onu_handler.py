@@ -111,3 +111,11 @@ class LockEthRequest(BaseModel):
 
 class LockEthResponse(BaseModel):
     status: str
+
+class EditCapacityRequest(BaseModel):
+    interface: str
+    olt_name: str
+    new_capacity: str
+
+class EditCapacityResponse(BaseModel):
+    status: str

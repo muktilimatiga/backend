@@ -4,13 +4,20 @@ from PIL import Image, ImageOps, ImageFilter, UnidentifiedImageError
 import pytesseract
 import io
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+import os
+
+# Configure Tesseract path for Windows
+if os.name == 'nt':  # Windows
+    tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    if os.path.exists(tesseract_path):
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 router = APIRouter()
 
-# Create a process pool for CPU-bound OCR tasks
-# Using processes instead of threads because OCR is CPU-intensive
-_ocr_executor = ProcessPoolExecutor(max_workers=2)
+# Create a thread pool for OCR tasks
+# Using threads instead of processes to avoid Windows multiprocessing issues
+_ocr_executor = ThreadPoolExecutor(max_workers=2)
 
 # Supported text file extensions for direct reading
 TEXT_FILE_EXTENSIONS = {'.txt', '.py', '.js', '.ts', '.jsx', '.tsx', '.md', '.json', 

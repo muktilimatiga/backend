@@ -135,5 +135,20 @@ COMMAND_TEMPLATES = {
             "interface eth eth_0/4 state {state}",
             "exit"
         ],
+    },
+    "change_capacity": {
+        "c300": [
+            "interface {interface}",
+            "tcont 1 name PPPOE profile UP-{up_profile}",
+            "gemport 1 traffic-limit downstream DOWN-{down_profile}",
+            "exit"
+        ],
+        "c600": [
+            "interface {interface}",
+            "tcont 1 name CIGNAL profile UP-{up_profile}",
+            "exit",
+            "interface {vport_interface}",
+            "qos traffic-policy DOWN-{down_profile} direction egress"
+        ],
     }
 }

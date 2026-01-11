@@ -549,6 +549,48 @@ class TelnetClient:
         except Exception as e:
             logging.error(f"Failed to edit port lock/unlock on {full_interface}: {e}")
             return f"Edit port lock/unlock gagal: {e}"
+        
+    async def edit_capacity_onu(self, interface: str, new_capacity: str) -> str:
+        """
+        Edit capacity ONU.
+        Args:
+            interface: ONU interface (e.g., "1/1/1:1")
+            new_capacity: Package from frontend (e.g., "10M")
+        
+        UP profile: Uses PACKAGE_OPTIONS + rate suffix (e.g., "UP-10MB-FIX")
+        DOWN profile: Uses frontend value directly (e.g., "DOWN-10M")
+        """
+        full_interface = self._format_onu_interface(interface)
+        vport_interface = self._format_vport_interface(interface)
+        
+        # Get DBA rate to determine suffix
+        base_interface = self._parse_base_interface(interface)
+        rate = await self.get_dba_rate(base_interface)
+        up_profile_suffix = "-MBW" if rate > 75.0 else "-FIX"
+        
+        # Lookup PACKAGE_OPTIONS: "10M" -> "10MB"
+        base_paket_name = PACKAGE_OPTIONS.get(new_capacity)
+        if not base_paket_name:
+            raise ValueError(f"Paket '{new_capacity}' tidak valid. Pilihan: {list(PACKAGE_OPTIONS.keys())}")
+        
+        # UP profile: "10MB" + "-FIX" = "10MB-FIX"
+        up_profile = f"{base_paket_name}{up_profile_suffix}"
+        # DOWN profile: use frontend value directly = "10M"
+        down_profile = new_capacity
+        
+        logging.info(f"Edit capacity: UP-{up_profile} / DOWN-{down_profile}")
+        
+        commands = self._config_interface_commands(full_interface)
+        commands.extend(self._get_action_commands("change_capacity", interface=full_interface, vport_interface=vport_interface, up_profile=up_profile, down_profile=down_profile))
+
+        try:
+            for cmd in commands:
+                await self._execute_command(cmd)
+            logging.info(f"Edited capacity on {full_interface}")
+            return "Edit capacity berhasil"
+        except Exception as e:
+            logging.error(f"Failed to edit capacity on {full_interface}: {e}")
+            return f"Edit capacity gagal: {e}"
             
     async def get_onu_ip_host(self, interface: str) -> str:
         """
