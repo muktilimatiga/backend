@@ -6,12 +6,54 @@ import io
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import os
+import shutil
+import subprocess
 
-# Configure Tesseract path for Windows
-if os.name == 'nt':  # Windows
-    tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    if os.path.exists(tesseract_path):
-        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+# Configure Tesseract path based on OS
+def _configure_tesseract():
+    """Configure Tesseract path and verify installation."""
+    if os.name == 'nt':  # Windows
+        tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        if os.path.exists(tesseract_path):
+            pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            return True
+    else:  # Linux/Unix
+        # Check common Linux paths
+        linux_paths = [
+            '/usr/bin/tesseract',
+            '/usr/local/bin/tesseract',
+            '/opt/tesseract/bin/tesseract',
+        ]
+        for path in linux_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                return True
+        
+        # Try to find tesseract in PATH
+        tesseract_in_path = shutil.which('tesseract')
+        if tesseract_in_path:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_in_path
+            return True
+    
+    return False
+
+def _verify_tesseract():
+    """Verify Tesseract is working and return version info."""
+    try:
+        version = pytesseract.get_tesseract_version()
+        print(f"[OCR] Tesseract version: {version}")
+        return True
+    except pytesseract.TesseractNotFoundError:
+        print("[OCR] ERROR: Tesseract not found!")
+        print("[OCR] Install with: sudo apt-get install tesseract-ocr")
+        return False
+    except Exception as e:
+        print(f"[OCR] ERROR verifying Tesseract: {e}")
+        return False
+
+# Configure and verify on startup
+_tesseract_configured = _configure_tesseract()
+_tesseract_available = _verify_tesseract()
 
 router = APIRouter()
 
@@ -64,6 +106,13 @@ async def extract_text(file: UploadFile = File(...)):
     Upload an image and extract text using OCR.
     Runs in a separate process to avoid blocking the event loop.
     """
+    # Check if Tesseract is available
+    if not _tesseract_available:
+        raise HTTPException(
+            status_code=503, 
+            detail="Tesseract OCR is not installed. Install with: sudo apt-get install tesseract-ocr"
+        )
+    
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Invalid file type")
         
@@ -71,7 +120,7 @@ async def extract_text(file: UploadFile = File(...)):
         # Read file bytes
         contents = await file.read()
         
-        # Run OCR in process pool (non-blocking)
+        # Run OCR in thread pool (non-blocking)
         loop = asyncio.get_event_loop()
         text = await loop.run_in_executor(_ocr_executor, _process_image_ocr, contents)
 
@@ -79,8 +128,13 @@ async def extract_text(file: UploadFile = File(...)):
 
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Invalid image format")
-    except RuntimeError:
-        raise HTTPException(status_code=500, detail="Tesseract failed to process the image")
+    except pytesseract.TesseractNotFoundError:
+        raise HTTPException(
+            status_code=503, 
+            detail="Tesseract OCR not found. Install with: sudo apt-get install tesseract-ocr"
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"Tesseract failed: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

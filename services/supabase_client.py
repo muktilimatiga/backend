@@ -10,12 +10,28 @@ from core import settings
 # Initialize Supabase client
 supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
+def normalize_user_pppoe(pppoe: str) -> str:
+    """Normalize user_pppoe by removing '3700' from billing format.
+    
+    Billing system uses format like: 101037006813
+    Local system uses format like: 101006813
+    This function removes '3700' to match local format.
+    """
+    # Remove '370' if present (billing format -> local format)
+    if "370" in pppoe:
+        return pppoe.replace("370", "")
+    return pppoe
+
+
 def search_customers(search_term: str, limit: int = 20):
     """Search customers by name, alamat, or user_pppoe.
     
     Splits the search term by spaces and matches ALL words (AND logic).
     E.g., "nasrul beji" will match records containing BOTH "nasrul" AND "beji".
     Each word can appear in any field (nama, alamat, or user_pppoe).
+    
+    For user_pppoe searches, also tries normalized format (removes '3700')
+    to handle billing vs local format differences.
     """
     # Split search term into individual words and convert to uppercase
     words = search_term.strip().upper().split()
@@ -26,7 +42,18 @@ def search_customers(search_term: str, limit: int = 20):
     # For each word, add an OR condition across all searchable fields
     # Multiple .or_() calls are chained as AND
     for word in words:
-        query = query.or_(f"nama.ilike.%{word}%,alamat.ilike.%{word}%,user_pppoe.ilike.%{word}%")
+        # Normalize word if it looks like a pppoe (numeric)
+        normalized_word = normalize_user_pppoe(word) if word.isdigit() else word
+        
+        # Build OR conditions - include both original and normalized for pppoe search
+        if word.isdigit() and normalized_word != word:
+            # If word was normalized, search with both variants
+            query = query.or_(
+                f"nama.ilike.%{word}%,alamat.ilike.%{word}%,"
+                f"user_pppoe.ilike.%{word}%,user_pppoe.ilike.%{normalized_word}%"
+            )
+        else:
+            query = query.or_(f"nama.ilike.%{word}%,alamat.ilike.%{word}%,user_pppoe.ilike.%{word}%")
     
     response = query.limit(limit).execute()
     return response.data

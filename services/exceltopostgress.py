@@ -5,13 +5,15 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch
 
+from services.supabase_client import supabase
+
 # --- Configuration ---
 POSTGRES_URI = os.getenv(
     "POSTGRES_URI",
     "dbname=data user=root password=Noclex1965 host=localhost port=5435"
 )
-TABLE_NAME  = os.getenv("POSTGRES_TABLE", "data_fiber")
-BATCH_SIZE  = int(os.getenv("BATCH_SIZE", "1000"))
+TABLE_NAME = os.getenv("POSTGRES_TABLE", "data_fiber")
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "500"))  # Supabase batch limit
 
 
 class ExcelHandler:
@@ -62,8 +64,8 @@ class ExcelHandler:
             return
 
         try:
-            # 1. Detect Header Row
-            temp_df = xl.parse(sheet, header=None)
+            # 1. Detect Header Row (use dtype=str to preserve zeros)
+            temp_df = xl.parse(sheet, header=None, dtype=str)
             header_row_index = -1
 
             for i, row in temp_df.head(20).iterrows():
@@ -92,12 +94,22 @@ class ExcelHandler:
         if not required_ok:
             return
 
+        # Helper to ensure string values preserve zeros (Excel sometimes converts to float)
+        def ensure_string(val):
+            if val is None:
+                return ""
+            val_str = str(val).strip()
+            # If Excel converted to float (e.g., "101006813.0"), remove decimal
+            if val_str.endswith(".0"):
+                val_str = val_str[:-2]
+            return val_str
+
         # 3. Yield Rows
         for _, r in df.iterrows():
-            name = r.get(cols["name"], "").strip() if cols["name"] else ""
-            pppoe = r.get(cols["pppoe"], "").strip() if cols["pppoe"] else ""
-            addr = r.get(cols["address"], "").strip() if cols["address"] else ""
-            paket = r.get(cols["paket"], "").strip() if cols["paket"] else ""
+            name = ensure_string(r.get(cols["name"], "")) if cols["name"] else ""
+            pppoe = ensure_string(r.get(cols["pppoe"], "")) if cols["pppoe"] else ""
+            addr = ensure_string(r.get(cols["address"], "")) if cols["address"] else ""
+            paket = ensure_string(r.get(cols["paket"], "")) if cols["paket"] else ""
 
             # Skip empty rows
             if not (name or pppoe or addr):
@@ -126,12 +138,14 @@ class ExcelHandler:
                 "onu_id": onu_id_val,
                 "sheet": sheet,
                 "paket": paket,
-                "updated_at": dt.datetime.utcnow(),
+                "updated_at": dt.datetime.utcnow().isoformat(),
             }
 
+    # --- PostgreSQL Methods (Local Backup) ---
+    
     @staticmethod
-    def init_db(cur):
-        """Create table if it doesn't exist."""
+    def init_postgres(cur):
+        """Create table in local PostgreSQL if it doesn't exist."""
         cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
             user_pppoe TEXT PRIMARY KEY,
@@ -150,19 +164,27 @@ class ExcelHandler:
         """)
 
     @staticmethod
-    def upsert_rows(cur, rows):
-        """Batch upsert into Postgres."""
+    def upsert_postgres(cur, rows: list[dict]):
+        """Batch upsert into local PostgreSQL."""
         if not rows:
             return
-
+        
+        # Convert dicts to tuples for execute_batch
+        row_tuples = [
+            (
+                r["user_pppoe"], r["nama"], r["alamat"], r["olt_name"],
+                r["olt_port"], r["onu_sn"], r["pppoe_password"], r["interface"],
+                r["onu_id"], r["sheet"], r["paket"], r["updated_at"]
+            )
+            for r in rows
+        ]
+        
         sql = f"""
         INSERT INTO {TABLE_NAME} (
             user_pppoe, nama, alamat, olt_name, olt_port, onu_sn,
             pppoe_password, interface, onu_id, sheet, paket, updated_at
         )
-        VALUES (
-            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-        )
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (user_pppoe)
         DO UPDATE SET
             nama = EXCLUDED.nama,
@@ -177,21 +199,45 @@ class ExcelHandler:
             paket = EXCLUDED.paket,
             updated_at = EXCLUDED.updated_at;
         """
-        execute_batch(cur, sql, rows, page_size=1000)
+        execute_batch(cur, sql, row_tuples, page_size=1000)
 
+    # --- Supabase Methods (Primary) ---
+    
+    @staticmethod
+    def upsert_supabase(rows: list[dict]) -> int:
+        """Batch upsert into Supabase."""
+        if not rows:
+            return 0
+        
+        response = supabase.table(TABLE_NAME).upsert(
+            rows,
+            on_conflict="user_pppoe"
+        ).execute()
+        
+        return len(response.data) if response.data else 0
+
+    # --- Main Process ---
+    
     @classmethod
     def process_file(cls, file_obj) -> int:
-        """Main entry point: reads file object, writes to DB, returns row count."""
+        """Main entry point: reads file object, writes to BOTH Supabase and local PostgreSQL."""
+        conn = None
+        cur = None
+        
         try:
-            conn = psycopg2.connect(POSTGRES_URI)
-            cur = conn.cursor()
+            # Connect to local PostgreSQL (backup)
+            try:
+                conn = psycopg2.connect(POSTGRES_URI)
+                cur = conn.cursor()
+                cls.init_postgres(cur)
+                conn.commit()
+                print("[INFO] Connected to local PostgreSQL for backup")
+            except Exception as pg_err:
+                print(f"[WARN] Local PostgreSQL not available: {pg_err}")
+                conn = None
+                cur = None
             
-            # 1. Init DB
-            cls.init_db(cur)
-            conn.commit()
-
-            # 2. Parse Excel
-            # Using file_obj directly works if it's a binary file-like object
+            # Parse Excel
             xl = pd.ExcelFile(file_obj)
             sheet_count = len(xl.sheet_names)
             print(f"Processing {sheet_count} sheets...")
@@ -201,32 +247,41 @@ class ExcelHandler:
 
             for sheet in xl.sheet_names:
                 for doc in cls.docs_from_sheet(xl, sheet) or []:
-                    rows_buffer.append((
-                        doc["user_pppoe"], doc["nama"], doc["alamat"], doc["olt_name"],
-                        doc["olt_port"], doc["onu_sn"], doc["pppoe_password"], doc["interface"],
-                        doc["onu_id"], doc["sheet"], doc["paket"], doc["updated_at"]
-                    ))
+                    # Skip rows without user_pppoe (required for upsert)
+                    if not doc.get("user_pppoe"):
+                        continue
+                    
+                    rows_buffer.append(doc)
 
                     if len(rows_buffer) >= BATCH_SIZE:
-                        cls.upsert_rows(cur, rows_buffer)
-                        total_upserted += len(rows_buffer)
+                        # Upsert to Supabase (primary)
+                        total_upserted += cls.upsert_supabase(rows_buffer)
+                        
+                        # Upsert to local PostgreSQL (backup)
+                        if cur:
+                            cls.upsert_postgres(cur, rows_buffer)
+                            conn.commit()
+                        
                         rows_buffer.clear()
-                        conn.commit()
+                        print(f"Upserted {total_upserted} rows so far...")
 
-            # 3. Flush remaining rows
+            # Flush remaining rows
             if rows_buffer:
-                cls.upsert_rows(cur, rows_buffer)
-                total_upserted += len(rows_buffer)
-                conn.commit()
+                total_upserted += cls.upsert_supabase(rows_buffer)
+                if cur:
+                    cls.upsert_postgres(cur, rows_buffer)
+                    conn.commit()
 
-            cur.close()
-            conn.close()
+            print(f"Total upserted: {total_upserted} rows (Supabase + PostgreSQL backup)")
             return total_upserted
 
         except Exception as e:
-            # Clean up connection if it exists
-            if 'cur' in locals() and cur: cur.close()
-            if 'conn' in locals() and conn: conn.close()
+            print(f"[ERROR] Failed to process file: {e}")
             raise e
-
-
+        
+        finally:
+            # Clean up PostgreSQL connection
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()

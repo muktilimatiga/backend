@@ -18,7 +18,6 @@ dependencies = [
     "pydantic==2.12.3",
     "pydantic-settings==2.11.0",
     "pysnmp==7.1.22",
-    "pytesseract>=0.3.13",
     "python-dotenv==1.2.1",
     "python-multipart>=0.0.21",
     "pyyaml==6.0.1",
@@ -31,4 +30,5 @@ dependencies = [
     "uvicorn==0.38.0",
     "webdriver-manager==4.0.2",
     "pytesseract==0.3.13",
+    "Pillow"
 ]
