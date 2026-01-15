@@ -30,5 +30,6 @@ dependencies = [
     "uvicorn==0.38.0",
     "webdriver-manager==4.0.2",
     "pytesseract==0.3.13",
-    "Pillow"
+    "Pillow",
+    "playwright>=1.57.0",
 ]

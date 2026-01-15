@@ -53,13 +53,13 @@ def get_olt_info(olt_name: str) -> dict | None:
 COMMAND_TEMPLATES = {
     # Reboot ONU commands
     "reboot": {
-        "c300": ["pon-onu-mng {interface}", "reboot", "exit"],
-        "c600": ["pon-onu-mng {interface}", "reboot", "exit"],
+        "c300": ["pon-onu-mng {interface}", "reboot", "yes", "exit"],
+        "c600": ["pon-onu-mng {interface}", "reboot", "yes", "exit"],
     },
     # Delete ONU commands (used with _config_interface_commands)
     "delete_onu": {
-        "c300": ["no onu {onu_id}", "exit"],
-        "c600": ["no onu {onu_id}", "exit"],
+        "c300": ["interface {interface}", "no onu {onu_id}", "exit"],
+        "c600": ["interface {interface}", "no onu {onu_id}", "exit"],
     },
     # Change SN / Re-register ONU
     "change_sn": {
