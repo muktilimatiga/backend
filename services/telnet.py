@@ -467,6 +467,7 @@ class TelnetClient:
         """Memberi perintah reboot ke ONU"""
         full_interface = self._format_onu_interface(interface)
         commands = self._get_action_commands("reboot", interface=full_interface)
+        logging.info(f"Reboot command for {interface}: {commands}")
 
         try:
             for cmd in commands:
