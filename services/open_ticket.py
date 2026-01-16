@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 from selenium.webdriver.chrome.service import Service 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
@@ -41,7 +42,15 @@ def build_driver(headless: bool) -> webdriver.Chrome:
     # be a bit less “botty”
     opts.add_argument("--disable-blink-features=AutomationControlled")
 
-    service = Service(ChromeDriverManager().install())
+    # Use Chromium driver for Docker/Linux, Chrome for Windows
+    import platform
+    if platform.system() == "Linux":
+        # For Debian/Docker with Chromium installed
+        service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+    else:
+        # For Windows/Mac with Chrome
+        service = Service(ChromeDriverManager().install())
+    
     driver = webdriver.Chrome(service=service, options=opts)
     driver.set_page_load_timeout(60)
 
