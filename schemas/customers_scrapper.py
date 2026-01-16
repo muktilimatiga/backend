@@ -23,15 +23,14 @@ class Customer(BaseModel):
     tickets: Optional[List[TicketItem]] = None
 
 class CustomerData(BaseModel):
-    id: str
-    nama: Optional[str] = None
-    alamat: Optional[str] = None
-    user_pppoe: Optional[str] = None  # Changed to str to match playwright output
-    paket: Optional[str] = None
-    status: Optional[str] = None
-    status_paket: Optional[str] = None
-    mobile: Optional[str] = None
-    maps: Optional[str] = None
+    name: str
+    address: Optional[str] = None
+    pppoe_user: Optional[str] = None
+    pppoe_password: Optional[str] = None
+    olt_name: Optional[str] = None
+    interface: Optional[str] = None
+    onu_sn: Optional[str] = None
+    modem_type: Optional[str] = None
 
 class CustomerInvoice(BaseModel):
     status: Optional[str] = None
