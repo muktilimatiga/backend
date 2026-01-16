@@ -22,6 +22,33 @@ class Customer(BaseModel):
     invoices: Optional[str] = None
     tickets: Optional[List[TicketItem]] = None
 
+class CustomerData(BaseModel):
+    id: str
+    nama: Optional[str] = None
+    alamat: Optional[str] = None
+    user_pppoe: Optional[str] = None  # Changed to str to match playwright output
+    paket: Optional[str] = None
+    status: Optional[str] = None
+    status_paket: Optional[str] = None
+    mobile: Optional[str] = None
+    maps: Optional[str] = None
+
+class CustomerInvoice(BaseModel):
+    status: Optional[str] = None
+    tickets: Optional[List[TicketItem]] = None
+    invoice_description: Optional[str] = None
+
+class CustomerDataWithInvoices(CustomerData):
+    """CustomerData with invoices attached (for single result)."""
+    invoices: Optional[CustomerInvoice] = None
+
+class CustomerSearchResponse(BaseModel):
+    """Response model for customer-fast endpoint."""
+    multiple: bool
+    count: int
+    customers: Optional[List[CustomerData]] = None  # When multiple=True
+    customer: Optional[CustomerDataWithInvoices] = None  # When multiple=False
+
 class DataPSB(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None

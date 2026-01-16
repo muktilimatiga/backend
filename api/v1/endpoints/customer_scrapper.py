@@ -2,10 +2,14 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from core import settings
-from schemas.config_handler import CustomerData
-from schemas.customers_scrapper import DataPSB, CustomerwithInvoices, Customer, CustomerBillingInfo
+from schemas.config_handler import CustomerData as ConfigCustomerData
+from schemas.customers_scrapper import (
+    DataPSB, CustomerwithInvoices, Customer, CustomerBillingInfo,
+    CustomerData, CustomerSearchResponse, CustomerDataWithInvoices, CustomerInvoice
+)
 from services.biling_scaper import BillingScraper, NOCScrapper
 from services.supabase_client import search_customers
+from services.playwright import CustomerService, NOC
 
 router = APIRouter()
 
@@ -21,6 +25,18 @@ def get_billing() -> BillingScraper:
         return BillingScraper()  # Let it create its own session and login to billing
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=f"Billing unavailable: {e}")
+
+def get_customer_service() -> CustomerService:
+    try:
+        return CustomerService()
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=f"Playwright unavailable: {e}")
+
+def get_noc() -> NOC:
+    try:
+        return NOC()
+    except ConnectionError as e:
+        raise HTTPException(status_code=503, detail=f"Playwright unavailable: {e}")
 
 # Endpoint show psb avaible
 @router.get("/psb", response_model=List[DataPSB])
@@ -86,3 +102,53 @@ async def get_customer_data(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch customers: {e}")
+    
+@router.get("/customer-fast", response_model=CustomerSearchResponse)
+async def get_customer_data_fast(
+    search: str = Query(..., min_length=1, description="Search by name, address, or pppoe")
+):
+    """
+    Get customer data using playwright.
+    
+    Returns:
+        - If multiple customers found: List of basic customer info for selection
+        - If single customer found: Full customer details with invoices
+    """
+    from services.playwright import get_customer_with_invoices_sync, run_sync
+    
+    # Run sync playwright in thread pool (Windows compatible)
+    search_results, invoices_data = await run_sync(
+        get_customer_with_invoices_sync, search, True
+    )
+    
+    if not search_results:
+        raise HTTPException(status_code=404, detail=f"No customer found for query: '{search}'")
+
+    # Multiple results: return list for frontend selection
+    if len(search_results) > 1:
+        customers = [CustomerData(**c) for c in search_results]
+        return CustomerSearchResponse(
+            multiple=True,
+            count=len(customers),
+            customers=customers,
+            customer=None
+        )
+    
+    # Single result: with invoices already fetched
+    customer_dict = search_results[0]
+    
+    invoices = None
+    if invoices_data:
+        invoices = CustomerInvoice(**invoices_data)
+    
+    customer_with_invoices = CustomerDataWithInvoices(
+        **customer_dict,
+        invoices=invoices
+    )
+    
+    return CustomerSearchResponse(
+        multiple=False,
+        count=1,
+        customers=None,
+        customer=customer_with_invoices
+    )

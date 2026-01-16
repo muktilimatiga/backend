@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 import shutil
 import subprocess
+import cv2
+import numpy as np
 
 # Configure Tesseract path based on OS
 def _configure_tesseract():
@@ -67,35 +69,72 @@ TEXT_FILE_EXTENSIONS = {'.txt', '.py', '.js', '.ts', '.jsx', '.tsx', '.md', '.js
                         '.java', '.c', '.cpp', '.h', '.go', '.rs', '.rb', '.php'}
 
 
-def _process_image_ocr(image_bytes: bytes) -> str:
+def _process_image_ocr(image_bytes: bytes, lang: str = 'eng') -> str:
     """
-    Heavy OCR processing - runs in separate process to avoid blocking.
+    Heavy OCR processing with optimized preprocessing for accuracy.
+    
+    Args:
+        image_bytes: Raw image bytes
+        lang: Tesseract language code (e.g., 'eng', 'ind', 'eng+ind')
     """
     image = Image.open(io.BytesIO(image_bytes))
     
     # --- PREPROCESSING ---
     # Convert RGBA to RGB (remove alpha channel)
     if image.mode == 'RGBA':
-        image = image.convert('RGB')
+        background = Image.new('RGB', image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[3])
+        image = background
     
-    # Invert for dark mode screenshots
-    image = ImageOps.invert(image)
-    
-    # Convert to Grayscale
+    # Convert to Grayscale first
     image = image.convert('L')
     
-    # Upscale 2x (reduced from 3x for better performance)
-    image = image.resize((image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
+    # Smart invert: only invert if image is dark (dark mode screenshots)
+    img_array = np.array(image)
+    avg_brightness = np.mean(img_array)
+    if avg_brightness < 128:
+        image = ImageOps.invert(image)
+        img_array = np.array(image)
     
-    # Sharpen
-    image = image.filter(ImageFilter.SHARPEN)
-
-    # Binarize
-    image = image.point(lambda x: 0 if x < 180 else 255, '1')
+    # Upscale for better OCR (Tesseract works best at ~300 DPI)
+    # Scale 3x for small text, 2x for normal text
+    scale_factor = 3 if min(image.size) < 500 else 2
+    new_size = (image.width * scale_factor, image.height * scale_factor)
+    image = image.resize(new_size, Image.Resampling.LANCZOS)
+    img_array = np.array(image)
     
-    # Extract Text
+    # Denoise using median filter (removes salt-and-pepper noise)
+    img_array = cv2.medianBlur(img_array, 3)
+    
+    # Adaptive thresholding (much better than fixed threshold)
+    # This handles varying lighting conditions across the image
+    img_array = cv2.adaptiveThreshold(
+        img_array, 
+        255, 
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY, 
+        11,  # Block size
+        2    # C constant
+    )
+    
+    # Optional: Morphological operations to clean up
+    kernel = np.ones((1, 1), np.uint8)
+    img_array = cv2.morphologyEx(img_array, cv2.MORPH_CLOSE, kernel)
+    
+    # Convert back to PIL Image
+    image = Image.fromarray(img_array)
+    
+    # --- OCR CONFIG ---
+    # --oem 3: Use LSTM + legacy engine (best accuracy)
+    # --psm 6: Assume uniform block of text
     custom_config = r'--oem 3 --psm 6'
-    text = pytesseract.image_to_string(image, config=custom_config, timeout=15)
+    
+    text = pytesseract.image_to_string(
+        image, 
+        lang=lang,
+        config=custom_config, 
+        timeout=30
+    )
     
     return text.strip()
 
