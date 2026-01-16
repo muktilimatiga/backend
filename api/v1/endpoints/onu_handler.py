@@ -28,9 +28,9 @@ def _parse_interface(interface: str) -> str:
     return interface.split(":")[0]
     
 
-@router.post("/onu/cek", response_class=PlainTextResponse)
-async def cek_onu(request: OnuDetailRequest):
-    olt_info = get_olt_info(request.olt_name)
+@router.post("/{olt_name}/onu/cek", response_class=PlainTextResponse)
+async def cek_onu(olt_name: str, request: OnuDetailRequest):
+    olt_info = get_olt_info(olt_name)
     if not olt_info:
         raise HTTPException(status_code=404, detail=f"OLT {request.olt_name} tidak ditemukan!")
     

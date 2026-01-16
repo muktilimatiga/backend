@@ -235,10 +235,10 @@ class APIClient:
             raise
     
     async def reboot_onu(self, olt_name: str, interface: str) -> str:
-        """POST /{olt_name}/onu/reboot"""
+        """POST /api/v1/onu/{olt_name}/onu/reboot"""
         try:
             payload = {"olt_name": olt_name, "interface": interface}
-            resp = await self.client.post(f"{self.base_url}/{olt_name}/onu/reboot", json=payload)
+            resp = await self.client.post(f"{self.base_url}/api/v1/onu/{olt_name}/onu/reboot", json=payload)
             resp.raise_for_status()
             return resp.json().get("result", "OK")
         except Exception as e:
