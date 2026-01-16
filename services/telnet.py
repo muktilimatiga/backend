@@ -466,8 +466,7 @@ class TelnetClient:
     async def send_reboot_command(self, interface: str) -> str:
         """Memberi perintah reboot ke ONU"""
         full_interface = self._format_onu_interface(interface)
-        commands = self._config_interface_commands(full_interface)
-        commands.extend(self._get_action_commands("reboot"))
+        commands = self._get_action_commands("reboot", interface=full_interface)
 
         try:
             for cmd in commands:
