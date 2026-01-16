@@ -1,13 +1,15 @@
-# docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   api:
+    # This tells Compose to look for the Dockerfile in the current directory
+    build: .
     ports:
       - "8002:8002"
     env_file:
       - .env
     restart: unless-stopped
+    # Useful for connecting to services running on the host machine (outside Docker)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

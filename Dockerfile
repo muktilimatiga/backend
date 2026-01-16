@@ -1,29 +1,53 @@
-# Dockerfile for Debian x86
-# Use an official Python runtime based on Debian 12 (Bookworm)
-# Platform: linux/amd64 (x86_64)
-FROM --platform=linux/amd64 python:3.11-slim-bookworm
+# 1. Name the stage "requirements-stage"
+FROM python:3.11-slim-bookworm AS requirements-stage
 
-# Set the working directory in the container
+WORKDIR /tmp
+
+# 2. Install Poetry AND the export plugin
+RUN pip install poetry poetry-plugin-export
+
+COPY pyproject.toml poetry.lock ./
+
+# 3. Export requirements to /tmp/requirements.txt
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
+
+# --- Final Stage ---
+FROM python:3.11-slim-bookworm
+
 WORKDIR /app
 
-# Install system dependencies for psycopg2 and other packages
+# Install system dependencies: Tesseract OCR + Chromium for Selenium
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
+    # Tesseract OCR
+    tesseract-ocr \
+    libtesseract-dev \
+    tesseract-ocr-ind \
+    # Chromium and ChromeDriver for Selenium
+    chromium \
+    chromium-driver \
+    # Required dependencies for headless Chrome
+    fonts-liberation \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file
-COPY requirements.txt /app/requirements.txt
+# Set Chrome environment variables for Selenium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
-# Install Python dependencies
+# 4. Copy from the named stage
+COPY --from=requirements-stage /tmp/requirements.txt /app/requirements.txt
+
+# Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy the entire backend application code into the container
+# Copy application code
 COPY . /app
 
-# Expose the port the app runs on
 EXPOSE 8002
 
-# Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]

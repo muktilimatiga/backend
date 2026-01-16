@@ -63,15 +63,14 @@ class TelnetClient:
     def _format_vport_interface(self, interface: str) -> str:
         """
         Format interface with vport prefix.
-        Example: 1/2/1:2 -> vport-1/2/1.2:1
-        The ':' becomes '.' and ':1' is always appended.
+        Example: 1/2/1:2 -> vport-1/2/1:2:1
+        The ':1' is always appended for vport.
         """
         if interface.startswith("vport"):
             return interface
-        # Replace ':' with '.' and append ':1'
-        formatted = interface.replace(":", ".")
-        logging.info(f"Formatted interface: {formatted}")
-        return f"vport-{formatted}:1"
+        # Keep ':' separator and append ':1'
+        logging.info(f"Formatted interface: {interface}")
+        return f"vport-{interface}:1"
 
     @staticmethod
     def _parse_onu_id(interface: str) -> int:
