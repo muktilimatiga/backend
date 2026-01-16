@@ -9,6 +9,9 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    # Mount local code for hot-reload (no rebuild needed for code changes)
+    volumes:
+      - .:/app
     # Useful for connecting to services running on the host machine (outside Docker)
     extra_hosts:
       - "host.docker.internal:host-gateway"
