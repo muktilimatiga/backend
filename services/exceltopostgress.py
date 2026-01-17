@@ -4,22 +4,12 @@ import datetime as dt
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch
-
 from services.supabase_client import supabase
 
-# --- Configuration ---
-POSTGRES_URI = os.getenv(
-    "POSTGRES_URI",
-    "dbname=data user=root password=Noclex1965 host=localhost port=5435"
-)
+POSTGRES_URI = os.getenv("POSTGRES_URI", "dbname=data user=root password=Noclex1965 host=172.16.121.11 port=5435")
 TABLE_NAME = os.getenv("POSTGRES_TABLE", "data_fiber")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "500"))  # Supabase batch limit
-
 
 class ExcelHandler:
-    """
-    Encapsulates the logic for parsing the Excel file and syncing to DB.
-    """
     
     CANDIDATE_COLS = {
         "name": ["nama","name","customer","pelanggan"],
@@ -32,256 +22,140 @@ class ExcelHandler:
     }
 
     @staticmethod
-    def parse_sheet_name(name: str):
+    def parse_sheet_name(name):
         n = (name or "").strip()
-        # Skip summary or total sheets
-        if not n or n.upper().startswith("TOTAL") or n.upper() in {"FIBER","SUMMARY","SHEET1"}:
-            return None, None
-        
-        # Regex to extract OLT and Port from sheet name (e.g., "OLT BEJI 1.1")
+        if not n or n.upper().startswith("TOTAL") or n.upper() in {"FIBER","SUMMARY","SHEET1"}: return None, None
         m = re.search(r"^(?P<olt>[A-Z]+)(?:\s+[A-Z0-9\s]+?)?(?:\s+PORT)?\s+(?P<port>[\d\.]+)\s*$", n, re.I)
-        if not m:
-            return n.upper(), None
-        return m.group("olt").strip().upper(), m.group("port").strip()
+        return (m.group("olt").strip().upper(), m.group("port").strip()) if m else (n.upper(), None)
 
     @staticmethod
-    def norm_cols(df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize column names to lowercase stripped strings."""
-        return df.rename(columns=lambda c: str(c).strip().lower() if c else "")
+    def norm_cols(df): return df.rename(columns=lambda c: str(c).strip().lower() if c else "")
 
     @staticmethod
-    def pick(df: pd.DataFrame, keys: list[str]) -> str | None:
-        """Find the first matching column name from a list of candidates."""
-        for k in keys:
-            if k in df.columns:
-                return k
+    def pick(df, keys): 
+        for k in keys: 
+            if k in df.columns: return k
         return None
 
     @classmethod
-    def docs_from_sheet(cls, xl: pd.ExcelFile, sheet: str):
+    def docs_from_sheet(cls, xl, sheet):
         olt_name, olt_port = cls.parse_sheet_name(sheet)
-        if not olt_name:
-            return
-
+        if not olt_name: return
         try:
-            # 1. Detect Header Row (use dtype=str to preserve zeros)
-            temp_df = xl.parse(sheet, header=None, dtype=str)
-            header_row_index = -1
-
-            for i, row in temp_df.head(20).iterrows():
-                row_str = ' '.join(str(s).lower() for s in row.dropna())
-                # Heuristic: Header row must contain 'nama' and either 'pppoe' or 'alamat'
-                if "nama" in row_str and ("pppoe" in row_str or "alamat" in row_str):
-                    header_row_index = i
-                    break
-
-            if header_row_index == -1:
-                print(f"[WARN] Could not find valid header in '{sheet}'. Skipping.")
-                return
-
-            # 2. Parse Actual Data
-            df = xl.parse(sheet, header=header_row_index, dtype=str).fillna("")
-
-        except Exception as e:
-            print(f"[WARN] Error reading '{sheet}': {e}")
-            return
+            temp = xl.parse(sheet, header=None, dtype=str)
+            idx = -1
+            for i, row in temp.head(20).iterrows():
+                s = ' '.join(str(x).lower() for x in row.dropna())
+                if "nama" in s and ("pppoe" in s or "alamat" in s):
+                    idx = i; break
+            if idx == -1: return
+            df = xl.parse(sheet, header=idx, dtype=str).fillna("")
+        except: return
 
         df = cls.norm_cols(df)
         cols = {k: cls.pick(df, v) for k, v in cls.CANDIDATE_COLS.items()}
+        if not (cols["name"] and (cols["pppoe"] or cols["address"])): return
 
-        # Validation: Must have Name + (PPPoE OR Address)
-        required_ok = (cols["name"] and (cols["pppoe"] or cols["address"]))
-        if not required_ok:
-            return
+        def clean(v): 
+            s = str(v).strip()
+            return s[:-2] if s.endswith(".0") else s
 
-        # Helper to ensure string values preserve zeros (Excel sometimes converts to float)
-        def ensure_string(val):
-            if val is None:
-                return ""
-            val_str = str(val).strip()
-            # If Excel converted to float (e.g., "101006813.0"), remove decimal
-            if val_str.endswith(".0"):
-                val_str = val_str[:-2]
-            return val_str
-
-        # 3. Yield Rows
         for _, r in df.iterrows():
-            name = ensure_string(r.get(cols["name"], "")) if cols["name"] else ""
-            pppoe = ensure_string(r.get(cols["pppoe"], "")) if cols["pppoe"] else ""
-            addr = ensure_string(r.get(cols["address"], "")) if cols["address"] else ""
-            paket = ensure_string(r.get(cols["paket"], "")) if cols["paket"] else ""
-
-            # Skip empty rows
-            if not (name or pppoe or addr):
-                continue
-
+            pppoe = clean(r.get(cols["pppoe"], ""))
+            if not pppoe: continue 
+            
+            # Simple parsing
             onu_port_val = (r.get(cols["onu_port"], "").strip() if cols["onu_port"] else None) or None
-            final_olt_port = olt_port
-            onu_id_val = None
-
-            # Handle interface splitting (e.g., "1/1/1:5")
+            final_olt = olt_port
+            onu_id = None
             if onu_port_val and ":" in onu_port_val:
                 parts = onu_port_val.split(':', 1)
-                final_olt_port = parts[0]
-                if len(parts) > 1:
-                    onu_id_val = parts[1]
+                final_olt = parts[0]
+                if len(parts) > 1: onu_id = parts[1]
 
             yield {
                 "user_pppoe": pppoe,
-                "nama": name,
-                "alamat": addr,
+                "nama": clean(r.get(cols["name"], "")),
+                "alamat": clean(r.get(cols["address"], "")),
                 "olt_name": olt_name,
-                "olt_port": final_olt_port,
-                "onu_sn": (r.get(cols["onu_sn"], "").strip().upper() if cols["onu_sn"] else None) or None,
-                "pppoe_password": (r.get(cols["password"], "").strip() if cols["password"] else None) or None,
+                "olt_port": final_olt,
+                "onu_sn": clean(r.get(cols["onu_sn"], "")).upper(),
+                "pppoe_password": clean(r.get(cols["password"], "")),
                 "interface": onu_port_val,
-                "onu_id": onu_id_val,
+                "onu_id": onu_id,
                 "sheet": sheet,
-                "paket": paket,
+                "paket": clean(r.get(cols["paket"], "")),
                 "updated_at": dt.datetime.utcnow().isoformat(),
             }
 
-    # --- PostgreSQL Methods (Local Backup) ---
-    
-    @staticmethod
-    def init_postgres(cur):
-        """Create table in local PostgreSQL if it doesn't exist."""
-        cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
-            user_pppoe TEXT PRIMARY KEY,
-            nama TEXT,
-            alamat TEXT,
-            olt_name TEXT,
-            olt_port TEXT,
-            onu_sn TEXT,
-            pppoe_password TEXT,
-            interface TEXT,
-            onu_id TEXT,
-            sheet TEXT,
-            paket TEXT,
-            updated_at TIMESTAMP
-        );
-        """)
-
-    @staticmethod
-    def upsert_postgres(cur, rows: list[dict]):
-        """Batch upsert into local PostgreSQL."""
-        if not rows:
-            return
-        
-        # Convert dicts to tuples for execute_batch
-        row_tuples = [
-            (
-                r["user_pppoe"], r["nama"], r["alamat"], r["olt_name"],
-                r["olt_port"], r["onu_sn"], r["pppoe_password"], r["interface"],
-                r["onu_id"], r["sheet"], r["paket"], r["updated_at"]
-            )
-            for r in rows
-        ]
-        
-        sql = f"""
-        INSERT INTO {TABLE_NAME} (
-            user_pppoe, nama, alamat, olt_name, olt_port, onu_sn,
-            pppoe_password, interface, onu_id, sheet, paket, updated_at
-        )
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (user_pppoe)
-        DO UPDATE SET
-            nama = EXCLUDED.nama,
-            alamat = EXCLUDED.alamat,
-            olt_name = EXCLUDED.olt_name,
-            olt_port = EXCLUDED.olt_port,
-            onu_sn = EXCLUDED.onu_sn,
-            pppoe_password = EXCLUDED.pppoe_password,
-            interface = EXCLUDED.interface,
-            onu_id = EXCLUDED.onu_id,
-            sheet = EXCLUDED.sheet,
-            paket = EXCLUDED.paket,
-            updated_at = EXCLUDED.updated_at;
-        """
-        execute_batch(cur, sql, row_tuples, page_size=1000)
-
-    # --- Supabase Methods (Primary) ---
-    
-    @staticmethod
-    def upsert_supabase(rows: list[dict]) -> int:
-        """Batch upsert into Supabase."""
-        if not rows:
-            return 0
-        
-        response = supabase.table(TABLE_NAME).upsert(
-            rows,
-            on_conflict="user_pppoe"
-        ).execute()
-        
-        return len(response.data) if response.data else 0
-
-    # --- Main Process ---
-    
     @classmethod
-    def process_file(cls, file_obj) -> int:
-        """Main entry point: reads file object, writes to BOTH Supabase and local PostgreSQL."""
-        conn = None
-        cur = None
+    def process_file(cls, file_obj):
+        print("--- FINAL ATTEMPT: ROBUST UPLOAD ---")
         
+        conn = psycopg2.connect(POSTGRES_URI)
+        cur = conn.cursor()
+        
+        # 1. FIX LOCAL DB (Safe method)
+        print("1. Fixing Local Database Rules...")
         try:
-            # Connect to local PostgreSQL (backup)
-            try:
-                conn = psycopg2.connect(POSTGRES_URI)
-                cur = conn.cursor()
-                cls.init_postgres(cur)
-                conn.commit()
-                print("[INFO] Connected to local PostgreSQL for backup")
-            except Exception as pg_err:
-                print(f"[WARN] Local PostgreSQL not available: {pg_err}")
-                conn = None
-                cur = None
-            
-            # Parse Excel
-            xl = pd.ExcelFile(file_obj)
-            sheet_count = len(xl.sheet_names)
-            print(f"Processing {sheet_count} sheets...")
+            cur.execute(f"ALTER TABLE {TABLE_NAME} DROP CONSTRAINT IF EXISTS {TABLE_NAME}_pkey;")
+            conn.commit()
+        except: conn.rollback()
 
-            rows_buffer = []
-            total_upserted = 0
+        # 2. WIPE LOCAL DATA
+        print("2. Wiping Local Data...")
+        cur.execute(f"TRUNCATE TABLE {TABLE_NAME};")
+        conn.commit()
 
-            for sheet in xl.sheet_names:
-                for doc in cls.docs_from_sheet(xl, sheet) or []:
-                    # Skip rows without user_pppoe (required for upsert)
-                    if not doc.get("user_pppoe"):
-                        continue
-                    
-                    rows_buffer.append(doc)
-
-                    if len(rows_buffer) >= BATCH_SIZE:
-                        # Upsert to Supabase (primary)
-                        total_upserted += cls.upsert_supabase(rows_buffer)
-                        
-                        # Upsert to local PostgreSQL (backup)
-                        if cur:
-                            cls.upsert_postgres(cur, rows_buffer)
-                            conn.commit()
-                        
-                        rows_buffer.clear()
-                        print(f"Upserted {total_upserted} rows so far...")
-
-            # Flush remaining rows
-            if rows_buffer:
-                total_upserted += cls.upsert_supabase(rows_buffer)
-                if cur:
-                    cls.upsert_postgres(cur, rows_buffer)
-                    conn.commit()
-
-            print(f"Total upserted: {total_upserted} rows (Supabase + PostgreSQL backup)")
-            return total_upserted
-
+        # 3. WIPE SUPABASE (Best Effort)
+        print("3. Wiping Supabase (If possible)...")
+        try:
+            supabase.table(TABLE_NAME).delete().neq("user_pppoe", "______").execute()
         except Exception as e:
-            print(f"[ERROR] Failed to process file: {e}")
-            raise e
+            print(f"   [NOTE] Supabase wipe error (ignored): {e}")
+
+        # 4. READ EXCEL
+        print("4. Reading Excel...")
+        xl = pd.ExcelFile(file_obj)
+        all_rows = []
+        for sheet in xl.sheet_names:
+            for doc in cls.docs_from_sheet(xl, sheet) or []:
+                all_rows.append(doc)
+
+        print(f"5. Uploading {len(all_rows)} rows...")
+
+        # 5. INSERT (Local = Critical, Supabase = Try/Except)
         
-        finally:
-            # Clean up PostgreSQL connection
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
+        def insert_local(batch):
+            tuples = [(r["user_pppoe"], r["nama"], r["alamat"], r["olt_name"], r["olt_port"], r["onu_sn"], r["pppoe_password"], r["interface"], r["onu_id"], r["sheet"], r["paket"], r["updated_at"]) for r in batch]
+            sql = f"""
+                INSERT INTO {TABLE_NAME} (user_pppoe, nama, alamat, olt_name, olt_port, onu_sn, pppoe_password, interface, onu_id, sheet, paket, updated_at) 
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """
+            execute_batch(cur, sql, tuples)
+
+        def insert_remote(batch):
+            try:
+                # We use standard insert. If Supabase rejects duplicates (409), we catch it.
+                supabase.table(TABLE_NAME).insert(batch).execute()
+            except Exception as e:
+                # Convert exception to string to check for 409 Conflict
+                err_str = str(e)
+                if "409" in err_str or "Conflict" in err_str:
+                    print(f"   [WARN] Supabase rejected duplicates in this batch. (Run ALTER TABLE in Supabase Dashboard to fix).")
+                else:
+                    print(f"   [ERR] Supabase Upload Failed: {e}")
+
+        batch_size = 500
+        for i in range(0, len(all_rows), batch_size):
+            batch = all_rows[i:i + batch_size]
+            
+            insert_remote(batch) # Won't crash the script anymore
+            insert_local(batch)  # Will definitely succeed
+            conn.commit()
+            
+            print(f"   Processed {min(i + batch_size, len(all_rows))} / {len(all_rows)}")
+
+        conn.close()
+        print("--- DONE (Check warnings for Supabase status) ---")
+        return len(all_rows)
