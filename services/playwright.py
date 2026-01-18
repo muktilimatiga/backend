@@ -1,9 +1,21 @@
 import logging
+import re
+from datetime import datetime
+from typing import List, Dict, Optional, Tuple
 from core.config import settings
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+from schemas.customers_scrapper import Customer, TicketItem, InvoiceItem, BillingSummary, CustomerwithInvoices
+
+# Month mapping for Indonesian to English
+MONTH_MAP_ID = {
+    "januari": "January", "februari": "February", "maret": "March", "april": "April",
+    "mei": "May", "juni": "June", "juli": "July", "agustus": "August",
+    "september": "September", "oktober": "October", "november": "November",
+    "desember": "December"
+}
 
 # Configure logging to show messages
 logging.basicConfig(
@@ -337,6 +349,394 @@ class CustomerService:
         logging.info(f"Ticket created successfully for customer {id_pelanggan}")
         return True
 
+    @staticmethod
+    def _parse_month_year(text: str) -> Tuple[Optional[str], Optional[int], Optional[int]]:
+        """Parse month and year from text like 'Januari 2025'."""
+        if not text:
+            return None, None, None
+        t = text.strip()
+        low = t.lower()
+        for indo, eng in MONTH_MAP_ID.items():
+            if indo in low:
+                t = low.replace(indo, eng).title()
+                break
+        m = re.search(r'([A-Za-z]+)\s+(\d{4})', t)
+        if not m:
+            return None, None, None
+        mname, y = m.group(1), m.group(2)
+        try:
+            dt = datetime.strptime(f"{mname} {y}", "%B %Y")
+            return m.group(0), dt.month, dt.year
+        except Exception:
+            return m.group(0), None, None
+
+    @staticmethod
+    def _parser_whatsapp_url(mobile: str) -> Optional[str]:
+        """Generate WhatsApp URL from mobile number."""
+        if not mobile:
+            return None
+        clean_number = mobile.strip()
+        if clean_number == "0":
+            return None
+        return f"https://wa.me/{clean_number}"
+
+    @staticmethod
+    def _parser_maps_url(coordinate: str) -> Optional[str]:
+        """Generate Google Maps URL from coordinates."""
+        if not coordinate:
+            return None
+        clean_coordinate = coordinate.strip()
+        if clean_coordinate == "0":
+            return None
+        return f"https://www.google.com/maps?q={clean_coordinate}"
+
+    def _parse_tickets(self) -> List[TicketItem]:
+        """Parse tickets from the current page."""
+        tickets = []
+        try:
+            # Find ticket table rows
+            ticket_rows = self.page.locator("table.table-bordered tbody tr")
+            count = ticket_rows.count()
+            
+            for i in range(count):
+                try:
+                    row = ticket_rows.nth(i)
+                    cells = row.locator("td")
+                    
+                    # Get ref_id from first column
+                    ref_id = ""
+                    try:
+                        ref_id = cells.nth(0).inner_text(timeout=2000).strip()
+                    except:
+                        pass
+                    
+                    # Only include tickets starting with "TN"
+                    if not ref_id.startswith("TN"):
+                        continue
+                    
+                    # Get date from second column
+                    date_created = ""
+                    try:
+                        date_created = cells.nth(1).inner_text(timeout=2000).strip()
+                    except:
+                        pass
+                    
+                    # Try to get description and action from modal
+                    ticket_description = None
+                    ticket_action = None
+                    
+                    modal = row.locator("div.modal").first
+                    if modal.count() > 0:
+                        # Look for timeline items in modal
+                        timeline_items = modal.locator(".track-order-list ul li")
+                        timeline_count = timeline_items.count()
+                        
+                        for j in range(timeline_count):
+                            try:
+                                item = timeline_items.nth(j)
+                                h5_tag = item.locator("h5").first
+                                header_text = ""
+                                if h5_tag.count() > 0:
+                                    header_text = h5_tag.inner_text(timeout=1000).upper()
+                                
+                                # Get body text from detail paragraph
+                                body_text = ""
+                                detail_p = item.locator("p.text-muted").nth(1)
+                                if detail_p.count() > 0:
+                                    body_text = detail_p.inner_text(timeout=1000).strip()
+                                
+                                # Description comes from "OPENED"
+                                if "OPENED" in header_text and not ticket_description:
+                                    ticket_description = body_text
+                                
+                                # Action comes from TECHNICIAN or NOC closure
+                                if "CLOSED BY TECHNICIAN" in header_text or "CLOSED BY NOC" in header_text:
+                                    ticket_action = body_text
+                            except:
+                                continue
+                    
+                    tickets.append(TicketItem(
+                        ref_id=ref_id,
+                        date_created=date_created,
+                        description=ticket_description or "N/A",
+                        action=ticket_action or "Pending/Check Timeline"
+                    ))
+                except Exception as e:
+                    logging.warning(f"Error parsing ticket row {i}: {e}")
+                    continue
+        except Exception as e:
+            logging.warning(f"Error parsing tickets: {e}")
+        
+        return tickets
+
+    def get_customer_details(self, customer_id: str) -> Optional[Customer]:
+        """Get comprehensive customer details by ID (matches BillingScraper.get_customer_details)."""
+        ok = self.login()
+        if not ok:
+            return None
+        
+        detail_url = INVOICES_URL.format(id=customer_id)
+        logging.info(f"Going to customer details: {detail_url}")
+        self.page.goto(detail_url, wait_until="networkidle")
+        
+        # --- A. Basic Profile Info ---
+        name = "N/A"
+        address = "N/A"
+        
+        try:
+            profile_box = self.page.locator("div.card-box.text-center").first
+            if profile_box.count() > 0:
+                name_tag = profile_box.locator("h4.mb-0").first
+                if name_tag.count() > 0:
+                    name = name_tag.inner_text(timeout=3000).strip()
+                
+                addr_tag = profile_box.locator("p.text-muted").first
+                if addr_tag.count() > 0:
+                    address = addr_tag.inner_text(timeout=3000).strip()
+        except Exception as e:
+            logging.warning(f"Error getting profile info: {e}")
+        
+        # --- B. Key-Value Profile Details ---
+        def get_profile_value(label_text: str) -> Optional[str]:
+            try:
+                label = self.page.locator(f"strong:has-text('{label_text}')").first
+                if label.count() > 0:
+                    value_span = label.locator("xpath=following-sibling::span").first
+                    if value_span.count() > 0:
+                        return value_span.inner_text(timeout=2000).strip()
+            except:
+                pass
+            return None
+        
+        user_join = get_profile_value("User Join")
+        user_pppoe = get_profile_value("No Internet")
+        mobile = get_profile_value("Mobile")
+        package = get_profile_value("Paket")
+        last_payment = get_profile_value("Last Payment")
+        
+        # Normalize mobile to 62 format
+        if mobile:
+            if mobile.startswith("0"):
+                mobile = "62" + mobile[1:]
+            elif not mobile.startswith("62"):
+                mobile = mobile
+        
+        # --- C. Coordinate ---
+        coordinate = None
+        try:
+            coord_input = self.page.locator("input[name='coordinat']").first
+            if coord_input.count() > 0:
+                coord_value = coord_input.get_attribute("value") or ""
+                if coord_value and "," in coord_value:
+                    coordinate = coord_value.strip()
+        except:
+            pass
+        
+        # Generate helper URLs
+        wa_link = self._parser_whatsapp_url(mobile)
+        maps_link = self._parser_maps_url(coordinate)
+        
+        # --- D. Payment Link from Invoice ---
+        detail_url_link = None
+        invoices_text = None
+        
+        try:
+            # Find the first invoice item with BC WA button
+            wa_button = self.page.locator("button[data-target*='modaleditt']").first
+            if wa_button.count() > 0:
+                modal_id = wa_button.get_attribute("data-target")
+                if modal_id:
+                    modal = self.page.locator(modal_id)
+                    if modal.count() > 0:
+                        textarea = modal.locator("textarea[name='deskripsi_edit']").first
+                        if textarea.count() > 0:
+                            invoices_text = textarea.input_value(timeout=3000)
+                            # Extract payment link from textarea
+                            if invoices_text:
+                                match = re.search(r'(https://payment\.lexxadata\.net\.id/\?id=[\w-]+)', invoices_text)
+                                if match:
+                                    detail_url_link = match.group(1)
+        except Exception as e:
+            logging.warning(f"Error getting invoice details: {e}")
+        
+        # --- E. Parse Tickets ---
+        tickets = self._parse_tickets()
+        
+        logging.info(f"Customer details retrieved: {name}, {user_pppoe}")
+        
+        return Customer(
+            id=customer_id,
+            name=name,
+            address=address,
+            user_pppoe=user_pppoe,
+            package=package,
+            coordinate=coordinate,
+            user_join=user_join,
+            mobile=mobile,
+            last_payment=last_payment,
+            detail_url=detail_url_link,
+            invoices=invoices_text,
+            wa_link=wa_link,
+            maps_link=maps_link,
+            tickets=tickets
+        )
+
+    def get_invoice_data(self, customer_id: str) -> Optional[CustomerwithInvoices]:
+        """Get detailed invoice data for a customer (matches BillingScraper.get_invoice_data)."""
+        ok = self.login()
+        if not ok:
+            return None
+        
+        detail_url = INVOICES_URL.format(id=customer_id)
+        logging.info(f"Going to invoice page: {detail_url}")
+        self.page.goto(detail_url, wait_until="networkidle")
+        
+        # Extract package
+        package_current = None
+        try:
+            paket_span = self.page.locator("p:has-text('Paket :') span").first
+            if paket_span.count() > 0:
+                package_current = paket_span.inner_text(timeout=2000).strip()
+        except:
+            pass
+        
+        # Extract coordinate
+        coordinate = None
+        try:
+            coord_input = self.page.locator("input[name='coordinat']").first
+            if coord_input.count() > 0:
+                coord_value = coord_input.get_attribute("value") or ""
+                if coord_value and "," in coord_value:
+                    coordinate = coord_value.strip()
+        except:
+            pass
+        
+        # Extract user_join
+        user_join = None
+        try:
+            user_join_span = self.page.locator("p:has-text('User Join :') span").first
+            if user_join_span.count() > 0:
+                user_join = user_join_span.inner_text(timeout=2000).strip()
+        except:
+            pass
+        
+        # Extract mobile
+        mobile = None
+        try:
+            mobile_span = self.page.locator("p:has-text('Mobile :') span").first
+            if mobile_span.count() > 0:
+                mobile_raw = mobile_span.inner_text(timeout=2000).strip()
+                if mobile_raw:
+                    if mobile_raw.startswith("0"):
+                        mobile = "62" + mobile_raw[1:]
+                    else:
+                        mobile = mobile_raw
+        except:
+            pass
+        
+        # Extract last payment
+        last_paid = None
+        try:
+            last_payment_span = self.page.locator("strong:has-text('Last Payment') + span").first
+            if last_payment_span.count() > 0:
+                last_paid = last_payment_span.inner_text(timeout=2000).strip()
+        except:
+            pass
+        
+        # --- Extract Invoice Items ---
+        invoices = []
+        try:
+            timeline_items = self.page.locator("ul.list-unstyled.timeline-sm > li.timeline-sm-item")
+            count = timeline_items.count()
+            
+            for i in range(count):
+                try:
+                    item = timeline_items.nth(i)
+                    
+                    # Get status (PAID/UNPAID badge)
+                    status = None
+                    status_badge = item.locator("span.badge").first
+                    if status_badge.count() > 0:
+                        status = status_badge.inner_text(timeout=1000).strip()
+                    
+                    # Get package name
+                    package_name = None
+                    h5_tag = item.locator("h5").first
+                    if h5_tag.count() > 0:
+                        package_name = h5_tag.inner_text(timeout=1000).strip()
+                    
+                    # Get period
+                    period = None
+                    period_p = item.locator("h5 + p").first
+                    if period_p.count() > 0:
+                        period = period_p.inner_text(timeout=1000).strip()
+                    
+                    # Get payment link
+                    payment_link = None
+                    link_input = item.locator("input[value^='https://payment.lexxadata.net.id']").first
+                    if link_input.count() > 0:
+                        payment_link = link_input.get_attribute("value")
+                    
+                    # Get description from modal
+                    description = None
+                    bc_wa_button = item.locator("button[data-target*='modaleditt']").first
+                    if bc_wa_button.count() > 0:
+                        modal_id = bc_wa_button.get_attribute("data-target")
+                        if modal_id:
+                            modal = self.page.locator(modal_id)
+                            if modal.count() > 0:
+                                textarea = modal.locator("textarea[name='deskripsi_edit']").first
+                                if textarea.count() > 0:
+                                    description = textarea.input_value(timeout=2000)
+                    
+                    # Parse period to month/year
+                    period_norm, month, year = self._parse_month_year(period or "")
+                    
+                    invoices.append(InvoiceItem(
+                        status=status,
+                        package=package_name,
+                        period=period,
+                        month=month,
+                        year=year,
+                        payment_link=payment_link,
+                        description=description
+                    ))
+                except Exception as e:
+                    logging.warning(f"Error parsing invoice item {i}: {e}")
+                    continue
+        except Exception as e:
+            logging.warning(f"Error parsing invoices: {e}")
+        
+        # --- Calculate Summary ---
+        now = datetime.now()
+        this_month_invoice = next(
+            (inv for inv in invoices if inv.year == now.year and inv.month == now.month), 
+            None
+        )
+        arrears_count = sum(
+            1 for inv in invoices
+            if inv.status == "Unpaid"
+            and inv.year is not None and inv.month is not None
+            and (inv.year, inv.month) < (now.year, now.month)
+        )
+        
+        summary = BillingSummary(
+            this_month=this_month_invoice.status if this_month_invoice else None,
+            arrears_count=arrears_count,
+            last_paid_month=last_paid
+        )
+        
+        return CustomerwithInvoices(
+            id=customer_id,
+            name=None,  # Not extracted in this method
+            paket=package_current,
+            coordinate=coordinate,
+            user_join=user_join,
+            mobile=mobile,
+            invoices=invoices,
+            summary=summary
+        )
+
 
 class NOC:
     """Sync Playwright service for NOC operations."""
@@ -456,6 +856,26 @@ def get_customer_with_invoices_sync(query: str, headless: bool = True):
         service.close()
 
 
+def get_customer_details_sync(customer_id: str, headless: bool = True) -> Optional[Customer]:
+    """Get comprehensive customer details (for use with run_sync)."""
+    service = CustomerService()
+    try:
+        service.start(headless=headless)
+        return service.get_customer_details(customer_id)
+    finally:
+        service.close()
+
+
+def get_invoice_data_sync(customer_id: str, headless: bool = True) -> Optional[CustomerwithInvoices]:
+    """Get detailed invoice data for customer (for use with run_sync)."""
+    service = CustomerService()
+    try:
+        service.start(headless=headless)
+        return service.get_invoice_data(customer_id)
+    finally:
+        service.close()
+
+
 if __name__ == "__main__":
     # Test sync version
     service = CustomerService()
@@ -465,7 +885,18 @@ if __name__ == "__main__":
         print(data)
         
         if data and len(data) > 0:
-            invoices = service.get_invoices(data[0]["id"])
-            print(invoices)
+            customer_id = data[0]["id"]
+            
+            # Test get_invoices (original method)
+            invoices = service.get_invoices(customer_id)
+            print("Invoices:", invoices)
+            
+            # Test get_customer_details (new method - matches BillingScraper)
+            customer = service.get_customer_details(customer_id)
+            print("Customer Details:", customer)
+            
+            # Test get_invoice_data (new method - matches BillingScraper)
+            invoice_data = service.get_invoice_data(customer_id)
+            print("Invoice Data:", invoice_data)
     finally:
         service.close()
