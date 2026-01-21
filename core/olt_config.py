@@ -53,8 +53,8 @@ def get_olt_info(olt_name: str) -> dict | None:
 COMMAND_TEMPLATES = {
     # Reboot ONU commands
     "reboot": {
-        "c300": ["pon-onu-mng {interface}", "reboot", "yes", "exit"],
-        "c600": ["pon-onu-mng {interface}", "reboot", "yes", "exit"],
+        "c300": ["interface {interface}", "shutdown", "no shutdown", "exit"],
+        "c600": ["interface {interface}", "shutdown", "no shutdown", "exit"],
     },
     # Delete ONU commands (used with _config_interface_commands)
     "delete_onu": {
@@ -148,7 +148,11 @@ COMMAND_TEMPLATES = {
             "tcont 1 name CIGNAL profile UP-{up_profile}",
             "exit",
             "interface {vport_interface}",
-            "qos traffic-policy DOWN-{down_profile} direction egress"
+            "qos traffic-policy DOWN-{down_profile} direction egress";
         ],
-    }
+    },
+    "base_info": {
+            "c300": [ "show gpon onu baseinfo {interface}" ],
+            "c600": [ "show gpon onu baseinfo {interface}" ],
+        }
 }
