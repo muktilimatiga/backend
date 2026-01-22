@@ -10,16 +10,24 @@ OLT_OPTIONS = {
     "GANDUSARI": {"ip": "192.168.12.3", "vlan": "906", "c600": False},
 }
 
-MODEM_OPTIONS = ["F609",  "F670L", "C-DATA"]
+MODEM_OPTIONS = ["F609", "F670L", "C-DATA"]
 
 PACKAGE_OPTIONS = {
-    "10M": "10MB", "15M": "15MB", "20M": "20MB", "25M": "25MB", "30M": "30MB",
-    "35M": "35MB", "40M": "40MB", "50M": "50MB", "75M": "75MB", "100M": "100MB"
+    "10M": "10MB",
+    "15M": "15MB",
+    "20M": "20MB",
+    "25M": "25MB",
+    "30M": "30MB",
+    "35M": "35MB",
+    "40M": "40MB",
+    "50M": "50MB",
+    "75M": "75MB",
+    "100M": "100MB",
 }
 
 OLT_ALIASES = {
     "CAMPURDARAT": "CAMPUR BARU",
-    "BOYOLANGU": "BOYOLANGU", # Tambahkan juga nama yang sudah cocok
+    "BOYOLANGU": "BOYOLANGU",  # Tambahkan juga nama yang sudah cocok
     "BEJI": "BEJI",
     "DURENAN": "DURENAN",
     "KALIDAWIR": "KALIDAWIR",
@@ -29,6 +37,7 @@ OLT_ALIASES = {
     "GANDUSARI": "GANDUSARI",
 }
 
+
 def get_olt_info(olt_name: str) -> dict | None:
     """
     Get OLT info by name with alias fallback.
@@ -36,17 +45,18 @@ def get_olt_info(olt_name: str) -> dict | None:
     Returns None if not found.
     """
     name_upper = olt_name.upper()
-    
+
     # Try direct lookup first
     if name_upper in OLT_OPTIONS:
         return OLT_OPTIONS[name_upper]
-    
+
     # Fallback to alias
     resolved_name = OLT_ALIASES.get(name_upper)
     if resolved_name:
         return OLT_OPTIONS.get(resolved_name)
-    
+
     return None
+
 
 # Command templates for OLT operations
 # Use {placeholders} for dynamic values
@@ -76,20 +86,26 @@ COMMAND_TEMPLATES = {
         "c300": ["show pon power attenuation {interface}"],
         "c600": ["show pon power attenuation {interface}"],
     },
-    #1 port Detail
+    # 1 port Detail
     "port_state": {
         "c300": ["show gpon onu state {interface}"],
         "c600": ["show gpon onu state {interface}"],
     },
-    #1 port Redaman
+    # 1 port Redaman
     "port_redaman": {
         "c300": ["show pon power onu-rx {interface}"],
         "c600": ["show pon power onu-rx {interface}"],
     },
     # Runnin confing
     "running_config": {
-        "c300": ["show running-config interface {interface}", "show onu running config {interface}"],
-        "c600": ["show running-config-interface {interface}", "show running-config-interface {vport_interface}"],
+        "c300": [
+            "show running-config interface {interface}",
+            "show onu running config {interface}",
+        ],
+        "c600": [
+            "show running-config-interface {interface}",
+            "show running-config-interface {vport_interface}",
+        ],
     },
     # Cek IP
     "cek_ip": {
@@ -106,17 +122,14 @@ COMMAND_TEMPLATES = {
         "c600": ["show pon bandwidth dba interface {interface}"],
     },
     "cek_monitoring": {
-        "c300" : ["show interface {interface}"],
-        "c600" : ["show interface {interface}"]
+        "c300": ["show interface {interface}"],
+        "c600": ["show interface {interface}"],
     },
     "cek_rx_monitoring": {
-        "c300" : ["show interface optical-module-info {interface}"],
-        "c600" : ["show interface optical-module-info {interface}"]
+        "c300": ["show interface optical-module-info {interface}"],
+        "c600": ["show interface optical-module-info {interface}"],
     },
-    "cek_state_olt" : {
-        "c300" : ["show gpon onu state"],
-        "c600" : ["show gpon onu state"]
-    },
+    "cek_state_olt": {"c300": ["show gpon onu state"], "c600": ["show gpon onu state"]},
     # Edit ethernet port lock/unlock (all 4 ports)
     "edit_port": {
         "c300": [
@@ -125,7 +138,7 @@ COMMAND_TEMPLATES = {
             "interface eth eth_0/2 state {state}",
             "interface eth eth_0/3 state {state}",
             "interface eth eth_0/4 state {state}",
-            "exit"
+            "exit",
         ],
         "c600": [
             "pon-onu-mng {interface}",
@@ -133,7 +146,7 @@ COMMAND_TEMPLATES = {
             "interface eth eth_0/2 state {state}",
             "interface eth eth_0/3 state {state}",
             "interface eth eth_0/4 state {state}",
-            "exit"
+            "exit",
         ],
     },
     "change_capacity": {
@@ -141,18 +154,18 @@ COMMAND_TEMPLATES = {
             "interface {interface}",
             "tcont 1 name PPPOE profile UP-{up_profile}",
             "gemport 1 traffic-limit downstream DOWN-{down_profile}",
-            "exit"
+            "exit",
         ],
         "c600": [
             "interface {interface}",
             "tcont 1 name CIGNAL profile UP-{up_profile}",
             "exit",
             "interface {vport_interface}",
-            "qos traffic-policy DOWN-{down_profile} direction egress";
+            "qos traffic-policy DOWN-{down_profile} direction egress",
         ],
     },
     "base_info": {
-            "c300": [ "show gpon onu baseinfo {interface}" ],
-            "c600": [ "show gpon onu baseinfo {interface}" ],
-        }
+        "c300": ["show gpon onu baseinfo {interface}"],
+        "c600": ["show gpon onu baseinfo {interface}"],
+    },
 }
