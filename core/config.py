@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     NMS_USERNAME_BILING: str
     NMS_PASSWORD_BILING: str
     DATA_PSB_URL: str
+    BILLING_URL_NEW: str
 
     #SWITCH
     SWITCH_USERNAME: str
