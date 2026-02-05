@@ -37,7 +37,7 @@ def search_customers(search_term: str, limit: int = 20):
     words = search_term.strip().upper().split()
     
     # Start building the query
-    query = supabase.table("customers_view").select("*")
+    query = supabase.table("data_fiber").select("*")
     
     # For each word, add an OR condition across all searchable fields
     # Multiple .or_() calls are chained as AND
