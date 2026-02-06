@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     NMS_PASSWORD_BILING: str
     DATA_PSB_URL: str
     BILLING_URL_NEW: str
+    LOGIN_URL: str
 
     #SWITCH
     SWITCH_USERNAME: str
@@ -38,12 +39,10 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str
 
     # --- URLs ---
-    LOGIN_URL: str
     LOGIN_URL_BILLING: str
     DETAIL_URL_BILLING: str
     BILLING_MODULE_BASE: str
     TICKET_NOC_URL: str
-    DATA_PSB_URL: str
 
     class Config:
         env_file = ".env"

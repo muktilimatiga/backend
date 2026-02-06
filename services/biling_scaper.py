@@ -145,15 +145,27 @@ class BillingScraper:
             name_tag = cols[0].find("h5")
             address_tag = cols[0].find("p")
             pppoe_tags = cols[1].find_all("p")
-            details_link_tag = cols[4].find("a", href=re.compile(r"deusr&id=(\d+)"))
+            
+            # Find detail link - ID can be base64 encoded (not just digits)
+            details_link_tag = cols[4].find("a", href=re.compile(r"deusr"))
             if not all([name_tag, address_tag, details_link_tag]) or len(pppoe_tags) < 2:
                 continue
-            match = re.search(r"id=(\d+)", details_link_tag['href'])
+            
+            # Extract ID, handling whitespace in base64 encoded IDs
+            href = details_link_tag.get('href', '')
+            match = re.search(r"id=([^\s\"&]+)", href)
             if not match:
-                continue
+                # Try getting everything after id= and strip whitespace
+                match = re.search(r"id=\s*(.+)", href, re.DOTALL)
+                if match:
+                    customer_id = re.sub(r'\s+', '', match.group(1))  # Remove all whitespace
+                else:
+                    continue
+            else:
+                customer_id = match.group(1).strip()
             
             collected_data.append({
-                "id": match.group(1),
+                "id": customer_id,
                 "name": name_tag.get_text(strip=True),
                 "address": address_tag.get_text(strip=True),
                 "user_pppoe": pppoe_tags[1].get_text(strip=True),
@@ -319,55 +331,28 @@ class BillingScraper:
 
         soup = BeautifulSoup(res.text, "html.parser")
 
-        package_current = None
-        last_paid = None
-        coordinate = None
-        user_join = None
+        # Helper function to extract profile values (strong -> sibling span pattern)
+        def get_profile_value(label_text: str) -> str:
+            strong = soup.find('strong', string=lambda t: t and label_text in t)
+            if strong:
+                value_span = strong.find_next_sibling('span')
+                if value_span:
+                    return value_span.get_text(strip=True)
+            return None
+
+        # Extract profile values
+        package_current = get_profile_value("Paket")
+        last_paid = get_profile_value("Last Payment")
+        user_join = get_profile_value("User Join")
+        mobile_raw = get_profile_value("Mobile")
+        
+        # Normalize mobile to 62 format
         mobile = None
-        
-        # Extract package
-        paket_p_tag = soup.find('p', string=lambda text: text and 'Paket :' in text)
-        if paket_p_tag and paket_p_tag.span:
-            package_current = paket_p_tag.span.get_text(strip=True)
-        
-        # Extract last payment (robust: look for strong tag with text, then get sibling span)
-        last_payment_strong = soup.find('strong', string=lambda t: t and 'Last Payment' in t)
-        if last_payment_strong:
-            # Try sibling span first
-            span = last_payment_strong.find_next_sibling('span')
-            if span:
-                last_paid = span.get_text(strip=True)
+        if mobile_raw:
+            if mobile_raw.startswith("0"):
+                mobile = "62" + mobile_raw[1:]
             else:
-                # Try parent's span
-                parent_p = last_payment_strong.find_parent('p')
-                if parent_p:
-                    span = parent_p.find('span')
-                    if span:
-                        last_paid = span.get_text(strip=True)
-        
-        # Fallback: original method
-        if not last_paid:
-            last_payment_p_tag = soup.find('p', string=lambda text: text and 'Last Payment :' in text)
-            if last_payment_p_tag and last_payment_p_tag.span:
-                last_paid = last_payment_p_tag.span.get_text(strip=True)
-        
-        # Extract User Join
-        user_join_tag = soup.find('p', string=lambda text: text and 'User Join :' in text)
-        if user_join_tag and user_join_tag.span:
-            user_join = user_join_tag.span.get_text(strip=True)
-        
-        # Extract Mobile and normalize to 62 format
-        mobile_tag = soup.find('p', string=lambda text: text and 'Mobile :' in text)
-        if mobile_tag and mobile_tag.span:
-            mobile_raw = mobile_tag.span.get_text(strip=True)
-            if mobile_raw:
-                # Normalize: if starts with 0, replace with 62
-                if mobile_raw.startswith("0"):
-                    mobile = "62" + mobile_raw[1:]
-                elif not mobile_raw.startswith("62"):
-                    mobile = mobile_raw
-                else:
-                    mobile = mobile_raw
+                mobile = mobile_raw
         
         # Extract coordinate from input name="coordinat" with value="lat,lng"
         coord_input = soup.find("input", {"name": "coordinat"})
