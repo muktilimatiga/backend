@@ -221,27 +221,56 @@ class CustomerService:
         logging.info(f"Invoice data retrieved for: {query}")
         return data
     
-    def create_ticket(self, id_pelanggan: str, description: str):
-        """Create a ticket for a customer."""
-        self.search_user(id_pelanggan)
+    def create_ticket(self, query: str, description: str, priority: str = "LOW", jenis: str = "FREE"):
+        """Create a ticket for a customer.
         
-        action_dropdown = self.page.locator(f"a[data-target='#create_tiga_modal{id_pelanggan}']")
+        Args:
+            query: Internet number or name to search for
+            description: Ticket description
+            priority: LOW, MEDIUM, or HIGH
+            jenis: FREE or CHARGED
+        """
+        ok = self.login()
+        if not ok:
+            return None
+            
+        # Search for the user
+        self.search_user(query)
         
+        # Find the first row's action dropdown
+        action_dropdown = self.page.locator("a.dropdown-toggle.table-action-btn").first
         if action_dropdown.count() == 0:
-            logging.error(f"Could not find Ticket Gangguan link for customer {id_pelanggan}")
+            logging.error(f"Could not find action dropdown for query: {query}")
+            return None
+            
+        action_dropdown.click()
+        
+        # Click on "Ticket Gangguan" link and get modal ID dynamically
+        ticket_link = self.page.locator("a.dropdown-item:has-text('Ticket Gangguan')").first
+        if ticket_link.count() == 0:
+            logging.error(f"Could not find Ticket Gangguan link for query: {query}")
             return None
         
-        action_dropdown.click()
-        logging.info(f"Opened Ticket Gangguan modal for customer {id_pelanggan}")
+        # Get the modal ID from data-target attribute
+        data_target = ticket_link.get_attribute("data-target")
+        if not data_target:
+            logging.error("Ticket Gangguan link has no data-target")
+            return None
         
-        modal = self.page.locator(f"#create_tiga_modal{id_pelanggan}")
+        modal_id = data_target.lstrip("#")
+        ticket_link.click()
+        logging.info(f"Opened Ticket Gangguan modal: {modal_id}")
+        
+        # Wait for modal to be visible using the dynamic ID
+        modal = self.page.locator(f"[id='{modal_id}']")
         modal.wait_for(state="visible", timeout=5000)
         
-        modal.locator("select[name='priority']").select_option("LOW")
-        logging.info("Selected priority: LOW")
+        # Fill the form
+        modal.locator("select[name='priority']").select_option(priority.upper())
+        logging.info(f"Selected priority: {priority}")
         
-        modal.locator("select[name='jenis_ticket']").select_option("FREE")
-        logging.info("Selected type: FREE")
+        modal.locator("select[name='jenis_ticket']").select_option(jenis.upper())
+        logging.info(f"Selected type: {jenis}")
         
         modal.locator("textarea[name='deskripsi']").fill(description)
         logging.info(f"Filled description: {description}")
@@ -251,7 +280,7 @@ class CustomerService:
         
         self.page.wait_for_load_state("networkidle")
         
-        logging.info(f"Ticket created successfully for customer {id_pelanggan}")
+        logging.info(f"Ticket created successfully for query: {query}")
         return True
 
     @staticmethod

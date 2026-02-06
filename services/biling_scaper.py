@@ -172,6 +172,58 @@ class BillingScraper:
             })
         return collected_data
 
+    def create_ticket(
+        self, 
+        query: str, 
+        description: str, 
+        priority: str = "LOW", 
+        jenis: str = "FREE"
+    ) -> dict:
+        """Create a ticket for a customer using HTTP POST.
+        
+        Args:
+            query: Internet number / PPPoE (used as id_pelanggan)
+            description: Ticket description
+            priority: LOW, MEDIUM, or HIGH
+            jenis: FREE or CHARGED
+            
+        Returns:
+            dict with status and message
+        """
+        # Build the ticket payload - use query directly as id_pelanggan
+        payload = {
+            "id_pelanggan": query,
+            "priority": priority.upper(),
+            "jenis_ticket": jenis.upper(),
+            "deskripsi": description,
+            "create_ticket_gangguan": ""  # Submit button name
+        }
+        
+        try:
+            res = self.session.post(
+                settings.BILLING_MODULE_BASE,
+                data=payload,
+                verify=False,
+                timeout=15,
+                allow_redirects=True
+            )
+            res.raise_for_status()
+            
+            # Check if ticket was created (look for success indicators in response)
+            if "berhasil" in res.text.lower() or res.status_code == 200:
+                return {
+                    "success": True, 
+                    "message": f"Ticket created for {query}"
+                }
+            else:
+                return {
+                    "success": False, 
+                    "message": "Ticket creation may have failed - check billing system"
+                }
+                
+        except requests.RequestException as e:
+            return {"success": False, "message": f"Request failed: {e}"}
+
     def _prime_module(self):
         try:
             module_base = "https://nms.lexxadata.net.id/billing2/04/04101"
