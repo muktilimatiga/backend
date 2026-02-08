@@ -1,0 +1,1163 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+    .client {
+        border: 1px solid #ccc;
+        padding: 20px;
+        box-sizing: border-box;
+        display: inline-block;
+        margin: 10px;
+    }
+
+    .hide {
+        display: none;
+    }
+    </style>
+    <meta charset="utf-8" />
+    <title>Dashboard | Billing - Lexxa Data</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
+    <meta content="Coderthemes" name="author" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="../../assets/images/favicon.ico">
+
+    <!-- Plugins css -->
+    <link href="../../assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/selectize/css/selectize.bootstrap3.css" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins css -->
+    <link href="../../assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/bootstrap-colorpicker/css/bootstrap-colorpicker.min.css" rel="stylesheet"
+        type="text/css" />
+    <link href="../../assets/libs/clockpicker/bootstrap-clockpicker.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/bootstrap-datepicker/css/bootstrap-datepicker.min.css" rel="stylesheet"
+        type="text/css" />
+
+    <!-- Jquery Toast css -->
+    <link href="../../assets/libs/jquery-toast-plugin/jquery.toast.min.css" rel="stylesheet" type="text/css" />
+
+
+    <!-- App css -->
+    <link href="../../assets/css/bootstrap-creative.min.css" rel="stylesheet" type="text/css"
+        id="bs-default-stylesheet" />
+    <link href="../../assets/css/app-creative.min.css" rel="stylesheet" type="text/css" id="app-default-stylesheet" />
+
+    <link href="../../assets/css/bootstrap-creative-dark.min.css" rel="stylesheet" type="text/css"
+        id="bs-dark-stylesheet" />
+    <link href="../../assets/css/app-creative-dark.min.css" rel="stylesheet" type="text/css" id="app-dark-stylesheet" />
+
+    <!-- icons -->
+    <link href="../../assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+
+    <!-- third party css -->
+    <link href="../../assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
+    <link href="../../assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
+    <!-- third party css end -->
+    <!-- Bootstrap Tables css -->
+    <link href="../../assets/libs/bootstrap-table/bootstrap-table.min.css" rel="stylesheet" type="text/css" />
+
+
+
+
+</head>
+
+<body class="loading" data-layout-mode="horizontal"
+    data-layout='{"mode": "light", "width": "fluid", "menuPosition": "fixed", "topbar": {"color": "dark"}, "showRightSidebarOnPageLoad": false}'>
+
+    <!-- Begin page -->
+    <div id="wrapper">
+
+        <!-- Topbar Start -->
+        <div class="navbar-custom">
+            <div class="container-fluid">
+                <ul class="list-unstyled topnav-menu float-right mb-0">
+
+                    <li class="dropdown notification-list topbar-dropdown">
+                        <a class="nav-link dropdown-toggle nav-user mr-0 waves-effect waves-light"
+                            data-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
+                            <img src="../../assets/images/users/user-1.jpg" alt="user-image" class="rounded-circle">
+                            <span class="pro-user-name ml-1">
+                                BUNGA <i class="mdi mdi-chevron-down"></i>
+                            </span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right profile-dropdown ">
+                            <!-- item-->
+                            <div class="dropdown-header noti-title">
+                                <h6 class="text-overflow m-0">Welcome !</h6>
+                            </div>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-user"></i>
+                                <span>My Account</span>
+                            </a>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-settings"></i>
+                                <span>Settings</span>
+                            </a>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-lock"></i>
+                                <span>Lock Screen</span>
+                            </a>
+
+                            <div class="dropdown-divider"></div>
+
+                            <!-- item-->
+                            <a href="../../log_out.php" class="dropdown-item notify-item">
+                                <i class="fe-log-out"></i>
+                                <span>Logout</span>
+                            </a>
+
+                        </div>
+                    </li>
+                    <li class="dropdown notification-list topbar-dropdown">
+                        <div id="notifatas"></div>
+                    </li>
+                </ul>
+
+                <!-- LOGO -->
+                <div class="logo-box">
+                    <a href="#" class="logo logo-dark text-center">
+                        <span class="logo-sm">
+                            <!-- <img src="../../assets/images/logo-sm.png" alt="" height="22">
+                                 <span class="logo-lg-text-light">UBold</span> -->
+                            <span class="logo-lg-text-light">Lexxa Net</span>
+                        </span>
+                        <span class="logo-lg">
+                            <img src="../../assets/images/logo-dark.png" alt="" height="20">
+                            <!-- <span class="logo-lg-text-light">U</span> -->
+                        </span>
+                    </a>
+
+                    <a href="index.php" class="logo logo-light text-center">
+                        <span class="logo-sm">
+                            <span class="logo-lg-text-light">LN</span>
+                        </span>
+                        <span class="logo-lg">
+
+                            <span class="logo-lg-text-light">Lexxa Net</span>
+                        </span>
+                    </a>
+                </div>
+                <ul class="list-unstyled topnav-menu topnav-menu-left m-0">
+                    <li>
+                        <button class="button-menu-mobile waves-effect waves-light">
+                            <i class="fe-menu"></i>
+                        </button>
+                    </li>
+
+                    <li>
+                        <!-- Mobile menu toggle (Horizontal Layout)-->
+                        <a class="navbar-toggle nav-link" data-toggle="collapse" data-target="#topnav-menu-content">
+                            <div class="lines">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </a>
+                        <!-- End mobile menu toggle-->
+                    </li>
+
+
+                </ul>
+
+                <div class="clearfix"></div>
+            </div>
+        </div>
+        <!-- end Topbar -->
+
+        <div class="topnav shadow-lg">
+            <div class="container-fluid">
+                <nav class="navbar navbar-light navbar-expand-lg topnav-menu">
+
+                    <div class="collapse navbar-collapse" id="topnav-menu-content">
+                        <ul class="navbar-nav">
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=hm" role="button">
+                                    <i class="fe-airplay mr-1"></i> Home <div></div>
+                                </a>
+
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i>Data Master <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+
+                                    <a href="index.php?csp=dcs" class="dropdown-item"> Data CS </a>
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i> Data Customer <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+								<a href="index.php?csp=was" class="dropdown-item"> Chat WA BC </a>
+								<a href="index.php?csp=iscu" class="dropdown-item"> Issue No Telp </a>
+                                    
+                                </div>
+                            </li>
+							
+							 <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i> Data Invoice <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=mics" class="dropdown-item"> Maintenence Invoice </a>
+                                   
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i>Ticket Manangement <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=pcs" class="dropdown-item"> Point Ticket </a>
+                                    <a href="index.php?csp=tcs" class="dropdown-item"> Type Ticket </a>
+									<a href="index.php?csp=tmi" class="dropdown-item"> Migration Ticket </a>
+
+                                </div>
+                            </li>
+
+                            <!-- 
+                            
+							<li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=test" role="button">
+                                    <i class="fe-settings mr-1"></i>Wa Setting <div></div>
+                                </a>
+
+                            </li>
+							
+							<li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=beta" role="button">
+                                    <i class="fe-settings mr-1"></i> Beta chat <div></div>
+                                </a>
+
+                            </li>
+							
+                            <!-- <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-airplay mr-1"></i> CRM <div class="arrow-down"></div>
+                                </a>                             
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=was" class="dropdown-item">Chat</a>
+                                    <a href="index.php?csp=test" class="dropdown-item">Setting</a>
+
+                                </div>
+                            </li> -->
+                        </ul> <!-- end navbar-->
+                    </div> <!-- end .collapsed-->
+                </nav>
+            </div> <!-- end container-fluid -->
+        </div> <!-- end topnav-->
+
+        <!-- ============================================================== -->
+        <!-- Start Page Content here -->
+        <!-- ============================================================== -->
+
+        <div class="content-page">
+            <div class="content">
+
+
+
+
+                    <!-- Start Content-->
+                    <div class="container-fluid">
+                        
+                        <!-- start page title -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="page-title-box">
+                                    <div class="page-title-right">
+                                        <ol class="breadcrumb m-0">
+                                            <li class="breadcrumb-item"><a href="javascript: void(0);">Billing</a></li>
+                                            <li class="breadcrumb-item"><a href="javascript: void(0);">Data Master</a></li>
+                                            <li class="breadcrumb-item active">Data Produk</li>
+                                        </ol>
+                                    </div>
+                                    <h4 class="page-title">Broadband</h4>
+                                </div>
+                            </div>
+                        </div>     
+                        <!-- end page title --> 
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        
+											
+                                        <div class="table-responsive">
+                                            <table class="table table-centered table-striped dt-responsive nowrap w-100" id="data_cs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Nama</th>
+                                                        <th>Alamat</th>
+														<th>Phone</th>
+														<th>Status</th>
+														
+                                                        <th style="width: 75px;">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    
+																															
+													
+													<tr>
+                                                        <td>1</td>
+                                                        <td>
+														
+														<h6 class="m-0 font-weight-normal">YVONNE</h6>
+                                                        
+														
+														</td>
+                                                       <td>
+														 
+														<h6 class="m-0 font-weight-normal">Ngantru</h6>
+                                                            
+                                                        </td>
+                                                       <td>
+														
+														<h6 class="m-0 font-weight-normal">082139925032</h6>
+                                                        
+														
+														</td>
+
+
+													   <td>
+														 															<span class="badge badge-soft-success">Active</span>
+																													
+                                                            
+                                                        </td>
+														
+                                                        <td>
+														
+																	
+														
+														
+														
+														
+														
+														
+														
+														
+														</td>
+														
+														
+														
+														<!-- /.MODAL EDIT -->
+																			
+											
+														
+														
+                                                    </tr>
+                                                 
+											 <!-- Info Alert Modal -->
+                                        <div id="info-alert-modal271" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm">
+											
+                                                <div class="modal-content">
+                                                    <form method="post">
+													<div class="modal-body p-4">
+                                                        <div class="text-center">
+                                                            <div class="form-group">
+																  <input type="hidden" name="id" value="271">
+																																  
+															</div>
+															<i class="dripicons-information h1 text-info"></i>
+                                                            <h4 class="mt-2">Warning !</h4>
+                                                            <p class="mt-3">Are You Sure Delete User YVONNE</p>
+                                                            <button type="submit" name="delete_data" class="btn btn-danger my-2">Continue</button>
+															<button class="btn btn-info my-2">Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                 </form>
+												</div><!-- /.modal-content -->
+												
+                                            </div><!-- /.modal-dialog -->
+                                        </div><!-- /.modal -->
+												
+																									
+													
+													<tr>
+                                                        <td>2</td>
+                                                        <td>
+														
+														<h6 class="m-0 font-weight-normal">LEXXA CS</h6>
+                                                        
+														
+														</td>
+                                                       <td>
+														 
+														<h6 class="m-0 font-weight-normal">BOYOLANGU</h6>
+                                                            
+                                                        </td>
+                                                       <td>
+														
+														<h6 class="m-0 font-weight-normal">085736278417</h6>
+                                                        
+														
+														</td>
+
+
+													   <td>
+														 															<span class="badge badge-soft-success">Active</span>
+																													
+                                                            
+                                                        </td>
+														
+                                                        <td>
+														
+																	
+														
+														
+														
+														
+														
+														
+														
+														
+														</td>
+														
+														
+														
+														<!-- /.MODAL EDIT -->
+																			
+											
+														
+														
+                                                    </tr>
+                                                 
+											 <!-- Info Alert Modal -->
+                                        <div id="info-alert-modal265" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm">
+											
+                                                <div class="modal-content">
+                                                    <form method="post">
+													<div class="modal-body p-4">
+                                                        <div class="text-center">
+                                                            <div class="form-group">
+																  <input type="hidden" name="id" value="265">
+																																  
+															</div>
+															<i class="dripicons-information h1 text-info"></i>
+                                                            <h4 class="mt-2">Warning !</h4>
+                                                            <p class="mt-3">Are You Sure Delete User LEXXA CS</p>
+                                                            <button type="submit" name="delete_data" class="btn btn-danger my-2">Continue</button>
+															<button class="btn btn-info my-2">Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                 </form>
+												</div><!-- /.modal-content -->
+												
+                                            </div><!-- /.modal-dialog -->
+                                        </div><!-- /.modal -->
+												
+																									
+													
+													<tr>
+                                                        <td>3</td>
+                                                        <td>
+														
+														<h6 class="m-0 font-weight-normal">NIA</h6>
+                                                        
+														
+														</td>
+                                                       <td>
+														 
+														<h6 class="m-0 font-weight-normal">PAKEL</h6>
+                                                            
+                                                        </td>
+                                                       <td>
+														
+														<h6 class="m-0 font-weight-normal">082244311100</h6>
+                                                        
+														
+														</td>
+
+
+													   <td>
+														 															<span class="badge badge-soft-success">Active</span>
+																													
+                                                            
+                                                        </td>
+														
+                                                        <td>
+														
+																	
+														
+														
+														
+														
+														
+														
+														
+														
+														</td>
+														
+														
+														
+														<!-- /.MODAL EDIT -->
+																			
+											
+														
+														
+                                                    </tr>
+                                                 
+											 <!-- Info Alert Modal -->
+                                        <div id="info-alert-modal267" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm">
+											
+                                                <div class="modal-content">
+                                                    <form method="post">
+													<div class="modal-body p-4">
+                                                        <div class="text-center">
+                                                            <div class="form-group">
+																  <input type="hidden" name="id" value="267">
+																																  
+															</div>
+															<i class="dripicons-information h1 text-info"></i>
+                                                            <h4 class="mt-2">Warning !</h4>
+                                                            <p class="mt-3">Are You Sure Delete User NIA</p>
+                                                            <button type="submit" name="delete_data" class="btn btn-danger my-2">Continue</button>
+															<button class="btn btn-info my-2">Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                 </form>
+												</div><!-- /.modal-content -->
+												
+                                            </div><!-- /.modal-dialog -->
+                                        </div><!-- /.modal -->
+												
+																									
+													
+													<tr>
+                                                        <td>4</td>
+                                                        <td>
+														
+														<h6 class="m-0 font-weight-normal">BUNGA</h6>
+                                                        
+														
+														</td>
+                                                       <td>
+														 
+														<h6 class="m-0 font-weight-normal">BEJI</h6>
+                                                            
+                                                        </td>
+                                                       <td>
+														
+														<h6 class="m-0 font-weight-normal">082244311100</h6>
+                                                        
+														
+														</td>
+
+
+													   <td>
+														 															<span class="badge badge-soft-success">Active</span>
+																													
+                                                            
+                                                        </td>
+														
+                                                        <td>
+														
+																	
+														
+														
+														
+														
+														
+														
+														
+														
+														</td>
+														
+														
+														
+														<!-- /.MODAL EDIT -->
+																			
+											
+														
+														
+                                                    </tr>
+                                                 
+											 <!-- Info Alert Modal -->
+                                        <div id="info-alert-modal270" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm">
+											
+                                                <div class="modal-content">
+                                                    <form method="post">
+													<div class="modal-body p-4">
+                                                        <div class="text-center">
+                                                            <div class="form-group">
+																  <input type="hidden" name="id" value="270">
+																																  
+															</div>
+															<i class="dripicons-information h1 text-info"></i>
+                                                            <h4 class="mt-2">Warning !</h4>
+                                                            <p class="mt-3">Are You Sure Delete User BUNGA</p>
+                                                            <button type="submit" name="delete_data" class="btn btn-danger my-2">Continue</button>
+															<button class="btn btn-info my-2">Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                 </form>
+												</div><!-- /.modal-content -->
+												
+                                            </div><!-- /.modal-dialog -->
+                                        </div><!-- /.modal -->
+												
+																								
+												</tbody>
+                                            </table>
+                                        </div>
+                                    </div> <!-- end card-body-->
+									
+									
+									
+									
+									<!-- /.MODAL INSERT -->
+																			
+											<div class="modal fade" id="modal-insert">
+												<div class="modal-dialog">
+												  <div class="modal-content">
+													<div class="modal-header">
+													  <h4 class="modal-title">Add Paket</h4>
+													  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+														<span aria-hidden="true">&times;</span>
+													  </button>
+													</div>
+												
+												<form method="post">
+											
+														<div class="modal-body">
+														<div class="form-group">
+														<input type="hidden" name="id_agen" class="form-control" value="270" required>					  
+														</div>
+															<div class="form-group">
+															 <label>Name</label>					
+																<input type="text" name="nama" class="form-control" placeholder="Nama" required>					  
+															</div>
+															
+															<div class="form-group">
+															 <label>Alamat</label>					
+																<input type="text" name="alamat" class="form-control" placeholder="Alamat" required>					  
+															</div>
+															
+															<div class="form-group">
+															 <label>Phone</label>					
+																<input type="text" name="phone" class="form-control" placeholder="Phone" required>					  
+															</div>
+															
+															<div class="row">
+																<div class="col-md-6">
+																<div class="form-group">
+																<label>Username</label>	
+															 
+																<input type="text" name="username" class="form-control" required >		
+															 
+																</div>
+																</div>
+															<div class="col-md-6">
+																	
+															<div class="form-group">
+																<label>Password</label>	
+															 <input type="text" name="password" class="form-control"  required >		
+															 
+															</div>
+															</div>
+															
+															</div>
+															
+															<div class="form-group">
+															  <label >Deskripsi</label>					  
+																<textarea class="form-control" name="deskripsi" ></textarea>					  
+															</div>
+															
+														</div>
+													
+													
+														<div class="modal-footer justify-content-between">
+															<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+															<button type="submit" name="insert_data" class="btn btn-primary">Add changes</button>
+														</div>
+												</form/>
+													
+												 
+												  <!-- /.modal-content -->
+												</div>
+												<!-- /.modal-dialog -->
+											  </div>
+											  <!-- /.modal -->
+											 </div>	
+										<!-- /.END MODAL INSERT -->
+																			
+																			
+																			
+																		</div> <!-- end card-->
+																	
+																	
+							
+							</div> <!-- end col -->
+                        </div>
+                        <!-- end row -->
+                        
+                    </div> <!-- container -->
+
+            </div> <!-- content -->
+
+            <!-- Footer Start -->
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-md-6">
+                            2015 - <script>
+                            document.write(new Date().getFullYear())
+                            </script> &copy; UBold theme by <a href="">Coderthemes</a>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-md-right footer-links d-none d-sm-block">
+                                <a href="javascript:void(0);">About Us</a>
+                                <a href="javascript:void(0);">Help</a>
+                                <a href="javascript:void(0);">Contact Us</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+            <!-- end Footer -->
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- End Page content -->
+        <!-- ============================================================== -->
+
+
+    </div>
+    <!-- END wrapper -->
+
+    <!-- Right bar overlay-->
+    <div class="rightbar-overlay"></div>
+    <!-- Vendor js -->
+    <script src="../../assets/js/vendor.min.js"></script>
+    <script src="../../assets/libs/apexcharts/apexcharts.min.js"></script>
+    <script src="../../assets/libs/selectize/js/standalone/selectize.min.js"></script>
+
+    <!-- App js-->
+    <script src="../../assets/js/app.min.js"></script>
+    <!-- 
+    <script src="../../assets/js/pages/datatables.init.js"></script>
+	  -->
+    <script src="../../assets/js/pages/bootstrap-tables.init.js"></script>
+    <script src="../../assets/libs/bootstrap-table/bootstrap-table.min.js"></script>
+
+    <!-- third party js -->
+    <script src="../../assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
+    <script src="../../assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+    <script src="../../assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js"></script>
+    <script src="../../assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js"></script>
+
+    <!-- Plugins js-->
+	
+    <script src="../../assets/libs/flatpickr/flatpickr.min.js"></script>
+    <script src="../../assets/libs/bootstrap-datepicker/js/bootstrap-datepicker.min.js"></script>
+
+    <script src="../../assets/js/app.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js"
+        integrity="sha512-Y5MDU6RaF5h5HE5BgqJlKkV12kbkbIgWHutcT+XHHNOUzr+HHjWZGC02sqEguuPglmFms3cc08WH2PhQ5rF8Cw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- Tost-->
+    <script src="../../assets/libs/jquery-toast-plugin/jquery.toast.min.js"></script>
+
+
+
+
+    <script>
+    $(document).ready(
+        function() {
+            var connectionOptions = {
+                "force new connection": true,
+                "reconnectionAttempts": "Infinity",
+                "timeout": 1000,
+                "transports": ["websocket"]
+            }
+
+            var socket1 = io.connect('https://nms.lexxadata.net.id:3000/', connectionOptions)
+            socket1.on('log_non_physic_ticket', function(msg2) {
+
+                ! function(p) {
+                    "use strict";
+
+                    function t() {}
+                    t.prototype.send = function(t, i, o, e, n, a, s, r) {
+                        var c = {
+                            heading: t,
+                            text: i,
+                            position: o,
+                            loaderBg: e,
+                            icon: n,
+                            hideAfter: 5000,
+                            stack: s = s || 1
+                        };
+                        r && (c.showHideTransition = r), p.toast().reset("all"), p.toast(c)
+                    }, p.NotificationApp = new t, p.NotificationApp.Constructor = t
+                }(window.jQuery),
+                function(i) {
+                    "use strict";
+                    if (msg2.nama_server == "Lexxa Net") {
+                        if (msg2.status == 'FORWARD TO NOC') {
+                            i.NotificationApp.send("Forward Ticket " + msg2.ticket_reference + "",
+                                "Name : " + msg2.nama + "</p>Priority : " + msg2.priority +
+                                "</p>Cause : " + msg2.deskripsi + "</p>By CS: " + msg2.nama_exekutor +
+                                "</p>", "top-right", "#bf441d", "error")
+                        } else if (msg2.status == 'PROCESSED BY NOC') {
+                            i.NotificationApp.send("Proses Ticket " + msg2.ticket_reference + "",
+                                "Name : " + msg2.nama + "</p>Action : " + msg2.deskripsi +
+                                "</p>By NOC : " + msg2.nama_exekutor + "</p> ", "top-right", "#1ea69a",
+                                "info")
+                        } else if (msg2.status == 'FORWARD TO TECHNICIAN') {
+                            i.NotificationApp.send("Forward Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By NOC : " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#1ea69a", "info")
+                        } else if (msg2.status == 'PROCESSED BY TECHNICIAN') {
+                            i.NotificationApp.send("Proses Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By TN: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#1ea69a", "info")
+                        } else if (msg2.status == 'CLOSED BY NOC') {
+                            i.NotificationApp.send("Hold Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By NOC: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#da8609", "warning")
+
+
+                        } else if (msg2.status == 'CLOSED BY TECHNICIAN') {
+
+
+                            i.NotificationApp.send("Hold Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By TN: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#da8609", "warning")
+
+
+                        } else if (msg2.status == 'CLOSED BY CS') {
+
+
+                            i.NotificationApp.send("Closed Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By CS: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#5ba035", "success")
+
+
+                        }
+
+
+                    }
+                    console.log('ticket non', msg2);
+
+                }(window.jQuery);
+            });
+
+
+
+
+
+
+            $("#tickets-gangguan").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+				ordering:false,
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [3, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+
+
+
+            $("#tickets-gangguan1").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [2, "desc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+            $("#tickets-note").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [3, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+
+            $("#tickets-table").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 10,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [6, "desc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+        });
+
+
+    $(document).ready(
+        function() {
+            "use strict";
+
+
+            $("#data_user2").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [4, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+            $("#data_phonebook").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [4, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+        });
+
+
+    $(document).ready(
+        function() {
+            "use strict";
+            $("#type_ticket").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                columns: [{
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+
+                    {
+                        orderable: !1
+                    }
+                ],
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [0, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+        });
+
+   
+
+ $(document).ready(
+ function(){"use strict";
+ $("#invoice_perbaikan").DataTable({language:{paginate:{previous:"<i class='mdi mdi-chevron-left'>",
+ next:"<i class='mdi mdi-chevron-right'>"},info:"Showing customers _START_ to _END_ of _TOTAL_",
+ lengthMenu:'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'},
+ pageLength:5,
+ columns:[
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!1}],select:{style:"multi"},order:[[0,"desc"]],drawCallback:function(){$(".dataTables_paginate > .pagination").addClass("pagination-rounded")}})});
+
+
+ $(document).ready(
+ function(){"use strict";
+ $("#ticket_migrasi").DataTable({language:{paginate:{previous:"<i class='mdi mdi-chevron-left'>",
+ next:"<i class='mdi mdi-chevron-right'>"},info:"Showing _START_ to _END_ of _TOTAL_",
+ lengthMenu:'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select>'},
+ pageLength:5,
+ select:{style:"multi"},order:[[0,"desc"]],drawCallback:function(){$(".dataTables_paginate > .pagination").addClass("pagination-rounded")}})});
+ 
+
+
+
+   $(document).ready(
+        function() {
+            "use strict";
+            $("#data_cs").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                columns: [{
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+
+                    {
+                        orderable: !1
+                    }
+                ],
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [0, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+        });
+    </script>
+   
+
+</body>
+
+</html>

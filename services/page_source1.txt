@@ -1,0 +1,1164 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+    .client {
+        border: 1px solid #ccc;
+        padding: 20px;
+        box-sizing: border-box;
+        display: inline-block;
+        margin: 10px;
+    }
+
+    .hide {
+        display: none;
+    }
+    </style>
+    <meta charset="utf-8" />
+    <title>Dashboard | Billing - Lexxa Data</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
+    <meta content="Coderthemes" name="author" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="../../assets/images/favicon.ico">
+
+    <!-- Plugins css -->
+    <link href="../../assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/selectize/css/selectize.bootstrap3.css" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins css -->
+    <link href="../../assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/bootstrap-colorpicker/css/bootstrap-colorpicker.min.css" rel="stylesheet"
+        type="text/css" />
+    <link href="../../assets/libs/clockpicker/bootstrap-clockpicker.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../assets/libs/bootstrap-datepicker/css/bootstrap-datepicker.min.css" rel="stylesheet"
+        type="text/css" />
+
+    <!-- Jquery Toast css -->
+    <link href="../../assets/libs/jquery-toast-plugin/jquery.toast.min.css" rel="stylesheet" type="text/css" />
+
+
+    <!-- App css -->
+    <link href="../../assets/css/bootstrap-creative.min.css" rel="stylesheet" type="text/css"
+        id="bs-default-stylesheet" />
+    <link href="../../assets/css/app-creative.min.css" rel="stylesheet" type="text/css" id="app-default-stylesheet" />
+
+    <link href="../../assets/css/bootstrap-creative-dark.min.css" rel="stylesheet" type="text/css"
+        id="bs-dark-stylesheet" />
+    <link href="../../assets/css/app-creative-dark.min.css" rel="stylesheet" type="text/css" id="app-dark-stylesheet" />
+
+    <!-- icons -->
+    <link href="../../assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+
+    <!-- third party css -->
+    <link href="../../assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
+    <link href="../../assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
+    <!-- third party css end -->
+    <!-- Bootstrap Tables css -->
+    <link href="../../assets/libs/bootstrap-table/bootstrap-table.min.css" rel="stylesheet" type="text/css" />
+
+
+
+
+</head>
+
+<body class="loading" data-layout-mode="horizontal"
+    data-layout='{"mode": "light", "width": "fluid", "menuPosition": "fixed", "topbar": {"color": "dark"}, "showRightSidebarOnPageLoad": false}'>
+
+    <!-- Begin page -->
+    <div id="wrapper">
+
+        <!-- Topbar Start -->
+        <div class="navbar-custom">
+            <div class="container-fluid">
+                <ul class="list-unstyled topnav-menu float-right mb-0">
+
+                    <li class="dropdown notification-list topbar-dropdown">
+                        <a class="nav-link dropdown-toggle nav-user mr-0 waves-effect waves-light"
+                            data-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
+                            <img src="../../assets/images/users/user-1.jpg" alt="user-image" class="rounded-circle">
+                            <span class="pro-user-name ml-1">
+                                BUNGA <i class="mdi mdi-chevron-down"></i>
+                            </span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right profile-dropdown ">
+                            <!-- item-->
+                            <div class="dropdown-header noti-title">
+                                <h6 class="text-overflow m-0">Welcome !</h6>
+                            </div>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-user"></i>
+                                <span>My Account</span>
+                            </a>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-settings"></i>
+                                <span>Settings</span>
+                            </a>
+
+                            <!-- item-->
+                            <a href="javascript:void(0);" class="dropdown-item notify-item">
+                                <i class="fe-lock"></i>
+                                <span>Lock Screen</span>
+                            </a>
+
+                            <div class="dropdown-divider"></div>
+
+                            <!-- item-->
+                            <a href="../../log_out.php" class="dropdown-item notify-item">
+                                <i class="fe-log-out"></i>
+                                <span>Logout</span>
+                            </a>
+
+                        </div>
+                    </li>
+                    <li class="dropdown notification-list topbar-dropdown">
+                        <div id="notifatas"></div>
+                    </li>
+                </ul>
+
+                <!-- LOGO -->
+                <div class="logo-box">
+                    <a href="#" class="logo logo-dark text-center">
+                        <span class="logo-sm">
+                            <!-- <img src="../../assets/images/logo-sm.png" alt="" height="22">
+                                 <span class="logo-lg-text-light">UBold</span> -->
+                            <span class="logo-lg-text-light">Lexxa Net</span>
+                        </span>
+                        <span class="logo-lg">
+                            <img src="../../assets/images/logo-dark.png" alt="" height="20">
+                            <!-- <span class="logo-lg-text-light">U</span> -->
+                        </span>
+                    </a>
+
+                    <a href="index.php" class="logo logo-light text-center">
+                        <span class="logo-sm">
+                            <span class="logo-lg-text-light">LN</span>
+                        </span>
+                        <span class="logo-lg">
+
+                            <span class="logo-lg-text-light">Lexxa Net</span>
+                        </span>
+                    </a>
+                </div>
+                <ul class="list-unstyled topnav-menu topnav-menu-left m-0">
+                    <li>
+                        <button class="button-menu-mobile waves-effect waves-light">
+                            <i class="fe-menu"></i>
+                        </button>
+                    </li>
+
+                    <li>
+                        <!-- Mobile menu toggle (Horizontal Layout)-->
+                        <a class="navbar-toggle nav-link" data-toggle="collapse" data-target="#topnav-menu-content">
+                            <div class="lines">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </a>
+                        <!-- End mobile menu toggle-->
+                    </li>
+
+
+                </ul>
+
+                <div class="clearfix"></div>
+            </div>
+        </div>
+        <!-- end Topbar -->
+
+        <div class="topnav shadow-lg">
+            <div class="container-fluid">
+                <nav class="navbar navbar-light navbar-expand-lg topnav-menu">
+
+                    <div class="collapse navbar-collapse" id="topnav-menu-content">
+                        <ul class="navbar-nav">
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=hm" role="button">
+                                    <i class="fe-airplay mr-1"></i> Home <div></div>
+                                </a>
+
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i>Data Master <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+
+                                    <a href="index.php?csp=dcs" class="dropdown-item"> Data CS </a>
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i> Data Customer <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+								<a href="index.php?csp=was" class="dropdown-item"> Chat WA BC </a>
+								<a href="index.php?csp=iscu" class="dropdown-item"> Issue No Telp </a>
+                                    
+                                </div>
+                            </li>
+							
+							 <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i> Data Invoice <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=mics" class="dropdown-item"> Maintenence Invoice </a>
+                                   
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-user mr-1"></i>Ticket Manangement <div class="arrow-down"></div>
+                                </a>
+
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=pcs" class="dropdown-item"> Point Ticket </a>
+                                    <a href="index.php?csp=tcs" class="dropdown-item"> Type Ticket </a>
+									<a href="index.php?csp=tmi" class="dropdown-item"> Migration Ticket </a>
+
+                                </div>
+                            </li>
+
+                            <!-- 
+                            
+							<li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=test" role="button">
+                                    <i class="fe-settings mr-1"></i>Wa Setting <div></div>
+                                </a>
+
+                            </li>
+							
+							<li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="index.php?csp=beta" role="button">
+                                    <i class="fe-settings mr-1"></i> Beta chat <div></div>
+                                </a>
+
+                            </li>
+							
+                            <!-- <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-dashboard"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fe-airplay mr-1"></i> CRM <div class="arrow-down"></div>
+                                </a>                             
+                                <div class="dropdown-menu" aria-labelledby="topnav-dashboard">
+                                    <a href="index.php?csp=was" class="dropdown-item">Chat</a>
+                                    <a href="index.php?csp=test" class="dropdown-item">Setting</a>
+
+                                </div>
+                            </li> -->
+                        </ul> <!-- end navbar-->
+                    </div> <!-- end .collapsed-->
+                </nav>
+            </div> <!-- end container-fluid -->
+        </div> <!-- end topnav-->
+
+        <!-- ============================================================== -->
+        <!-- Start Page Content here -->
+        <!-- ============================================================== -->
+
+        <div class="content-page">
+            <div class="content">
+
+
+
+
+                    <!-- Start Content-->
+                    <div class="container-fluid">
+
+                        <!-- start page title -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="page-title-box">
+                                    <div class="page-title-right">
+                                        <ol class="breadcrumb m-0">
+                                            <li class="breadcrumb-item"><a href="javascript: void(0);">UBold</a></li>
+                                            <li class="breadcrumb-item"><a href="javascript: void(0);">Extras</a></li>
+                                            <li class="breadcrumb-item active">Profile</li>
+                                        </ol>
+                                    </div>
+                                    <h4 class="page-title">Profile</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end page title -->
+
+                        <div class="row">
+                            <div class="col-lg-4 col-xl-4">
+							
+                                 <div class="card-box text-center">
+                                    <img src="../../assets/images/users/user-1.jpg" class="rounded-circle avatar-lg img-thumbnail"
+                                        alt="profile-image">
+
+                                    <h4 class="mb-0">SUGENG NIFTAH (KTN)</h4>
+                                    <p class="text-muted">DSN.JARANGUYANG DS.BATANGSAREN KEC.KAUMAN KAB.TULUNGAGUNG</p>
+
+                                    <a href="index.php?csp=hm">
+					<button type="button" class="btn btn-success btn-xs waves-effect mb-2 waves-light">Back</button>
+					</a>
+                                    
+									 				                                     	<button type="button" class="btn btn-success btn-xs waves-effect mb-2 waves-light">ONLINE</button>
+				                     									
+								
+									
+									 				                                     	<button type="button" class="btn btn-danger btn-xs waves-effect mb-2 waves-light">UNPAID</button>
+				                     									
+									
+									
+
+                                    <div class="text-left mt-3">
+                                        <p class="text-muted mb-2 font-13"><strong>User Join :</strong> <span class="ml-2">08 Dec 2025 11:45</span></p>
+                                        <p class="text-muted mb-2 font-13"><strong>No Internet :</strong> <span class="ml-2">10009124</span></p>
+																				
+                                        <p class="text-muted mb-2 font-13"><strong>Mobile :</strong><span class="ml-2">6281335352990</span></p>
+
+                                       
+                                        <p class="text-muted mb-1 font-13"><strong>NIK :</strong> <span class="ml-2">3504010707740002</span></p>
+										  <p class="text-muted mb-1 font-13"><strong>Paket :</strong> <span class="ml-2">CIGNAL 15M (Rp 111.000)</span></p>
+										 <p class="text-muted mb-1 font-13"><strong>Last Payment :</strong> <span class="ml-2">16 Jan 2026 01:09</span></p>
+
+										 <p class="text-muted mb-1 font-13"><strong>Uptime :</strong> <span class="ml-2">32400</span></p>
+										 <p class="text-muted mb-1 font-13"><strong>Bw Usage Up/Down :</strong> <span class="ml-2">323783541/5697069323</span></p>
+										 <p class="text-muted mb-1 font-13"><strong>SN Modem :</strong> <span class="ml-2">CDTCAF2437BB</span></p> 
+										  
+                                    </div>
+
+                                    <ul class="social-list list-inline mt-3 mb-0">
+                                        <li class="list-inline-item">
+                                            <a href="javascript: void(0);" class="social-list-item border-primary text-primary"><i
+                                                    class="mdi mdi-facebook"></i></a>
+                                        </li>
+                                        <li class="list-inline-item">
+                                            <a href="javascript: void(0);" class="social-list-item border-danger text-danger"><i
+                                                    class="mdi mdi-google"></i></a>
+                                        </li>
+                                        <li class="list-inline-item">
+                                            <a href="javascript: void(0);" class="social-list-item border-info text-info"><i
+                                                    class="mdi mdi-twitter"></i></a>
+                                        </li>
+                                        <li class="list-inline-item">
+                                            <a href="javascript: void(0);" class="social-list-item border-secondary text-secondary"><i
+                                                    class="mdi mdi-github"></i></a>
+                                        </li>
+                                    </ul>
+                                </div> <!-- end card-box -->
+
+  
+ 
+
+ 
+                            
+
+                            </div> <!-- end col-->
+							
+							
+							
+							
+							
+
+                            <div class="col-lg-8 col-xl-8">
+                                <div class="card-box">
+                                    <ul class="nav nav-pills navtab-bg nav-justified">
+                                        <li class="nav-item">
+                                            <a href="#aboutme" data-toggle="tab" aria-expanded="false" class="nav-link active">
+                                                Invoice
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a href="#timeline" data-toggle="tab" aria-expanded="true" class="nav-link ">
+                                                Ticket
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a href="#settings" data-toggle="tab" aria-expanded="false" class="nav-link">
+                                                Settings
+                                            </a>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content">
+                                        <div class="tab-pane active" id="aboutme">
+
+                                            <h5 class="mb-4 text-uppercase"><i class="mdi mdi-briefcase mr-1"></i>
+                                                Invoice Details</h5>
+
+                                            <ul class="list-unstyled timeline-sm">
+											 											
+                                                <li class="timeline-sm-item">
+                                                    <span class="timeline-sm-date">
+													
+													  														<span class="badge badge-danger">Unpaid</span>
+				                                       													
+													</span>
+                                                    <h5 class="mt-0 mb-1">CIGNAL 15M (Rp 111.000)</h5>
+                                                    <p>February 2026</p>
+																										 
+													 <p><input type="text" class="form-control" name="phone" value="https://payment.lexxadata.net.id/?id=50882205"></p>
+													 
+													 													
+											
+											<!-- Standard  modal -->
+											<div class="text-right">
+											<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modaleditt82205">BC WA</button>
+                                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#standard-modal82205">Details</button>
+											
+											</div>		
+													<!-- Standard modal content -->
+													
+	<div class="modal fade" id="modaleditt82205">
+		<div class="modal-dialog">
+			<div class="modal-content">
+					<div class="modal-header">
+						<h4 class="modal-title">BC WA</h4>
+							<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+								<span aria-hidden="true">&times;</span>
+							</button>
+					</div>
+												
+				<form method="post">
+											
+					<div class="modal-body">
+									
+					
+								<div class="form-group">
+									<label>Phone</label>
+									<input type="text" name="hp1_edit" class="form-control" value="6281335352990">
+								</div>
+										
+														
+															
+															
+						<div class="form-group">
+							<label >Deskripsi</label>					  
+								<textarea class="form-control" name="deskripsi_edit" rows="10">Pelanggan Yth, *SUGENG NIFTAH (KTN)*
+Berikut detail tagihan internet bulan February 2026, 
+
+No Internet : 10009124
+Nama: SUGENG NIFTAH (KTN)
+Tagihan : Rp. 111,000
+Link Payment : https://payment.lexxadata.net.id/?id=50882205
+
+Silahkan melakukan pembayaran sebelum tanggal 21 February 2026. Agar internet Anda tidak terisolir oleh sistem.</textarea>					  
+						</div>
+															
+					</div>
+													
+													
+					<div class="modal-footer justify-content-between">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						
+					</div>
+				</form/>
+													
+												 
+												  <!-- /.modal-content -->
+			</div>
+												<!-- /.modal-dialog -->
+		</div>
+											  <!-- /.modal -->
+	</div>
+
+
+										
+													
+                                        <div id="standard-modal82205" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="standard-modalLabel" aria-hidden="true">
+                                            <div class="modal-dialog modal-lg">
+                                               
+											<form method="post">
+											 
+											
+											
+											   <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h4 class="modal-title" id="standard-modalLabel">Detail Tagihan</h4>
+                                                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                      
+                                                    
+                                                       
+                                                   						
+						
+						
+       
+              <div class="row">
+                                        <div class="col-12">
+                                            <div class="table-responsive">
+                                                <table data-toggle="table" data-show-columns="false" 
+				                    data-search="false" data-buttons-class="xs btn-light" data-pagination="false"
+				                    class="table-bordered">
+                                                    <thead class="thead-dark">
+                                                    <tr><th>#</th>
+                                                        <th>Item</th>                                                        
+                                                        <th style="width: 10%">Price</th>
+                                                        <th style="width: 10%" class="text-right">Total</th>
+                                                    </tr></thead>
+                                                    <tbody>
+                                                    <tr>
+                                                        <td>1</td>
+                                                        <td><b>Internet</b></td>
+														<td>100,000</td>
+                                                        <td class="text-right">100,000</td>
+                                                    </tr>
+													 <tr>
+                                                        <td>2</td>
+                                                        <td><b>Biaya Perbaikan</b></td>
+														<td>0</td>
+                                                        <td class="text-right">0</td>
+                                                    </tr>
+													<tr>
+                                                        <td>3</td>
+                                                        <td><b>Biaya BOD </b></td>
+														<td>0</td>
+                                                        <td class="text-right">0</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>3</td>
+                                                        <td><b>Biaya Migrasi </b></td>
+														<td>0</td>
+                                                        <td class="text-right">0</td>
+                                                    </tr>
+													
+        
+                                                    </tbody>
+                                                </table>
+                                            </div> <!-- end table-responsive --></p>
+											
+                                        </div> <!-- end col -->
+                                    </div>
+                                   
+								   
+								   <div class="row">
+                                        <div class="col-sm-4">
+                                            <div class="clearfix pt-5">
+                                                <h6 class="text-muted">Notes:</h6>
+        
+                                            </div>
+                                        </div> <!-- end col -->
+                                        <div class="col-sm-8">
+                                            <div class="float-right">
+                                                <p><b>Sub total :</b> <span class="float-right">Rp. 100,000</span></p>
+												<p><b>Admin :</b> <span class="float-right">&nbsp;&nbsp;&nbsp;Rp. 0</span></p>
+                                                <p><b>Tax :</b> <span class="float-right"> &nbsp;&nbsp;&nbsp; Rp. 11,000</span></p>
+                                                <h3>Rp. 111,000</h3>
+                                            </div>
+                                            <div class="clearfix"></div>
+                                        </div> <!-- end col -->
+                                    </div>
+						
+						
+												
+						
+						
+													 
+													   
+
+
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+														<!--
+                                                        <button type="submit" name="send_wa" class="btn btn-primary">Send</button>
+														  -->
+                                                    </div>
+                                                </div><!-- /.modal-content -->
+                                            
+											 </form>
+											
+											</div><!-- /.modal-dialog -->
+                                        </div><!-- /.modal -->
+													
+                                                </li>
+												
+												                                                
+                                            </ul>
+
+                                           
+
+
+                                        </div> <!-- end tab-pane -->
+                                        <!-- end about me section content -->
+
+                                        <div class="tab-pane show" id="timeline">
+										
+							
+
+                             <div class="text-left mt-3">
+
+                            <h5 class="mb-3 text-uppercase bg-light p-2"><i class="mdi mdi-office-building mr-1"></i> Ticket Info</h5>
+							
+							    
+				                <table data-toggle="table" data-show-columns="false" data-page-list="[5, 10, 20]" data-page-size="5"
+				                    data-search="false" data-buttons-class="xs btn-light" data-pagination="true"
+				                    class="table-bordered">
+				                    <thead class="thead-dark">
+				                        <tr>
+				                            <th class="border-top-0">Ref</th>
+				                            <th class="border-top-0">Date</th>
+				                            <th class="border-top-0">Details</th>
+											<th class="border-top-0">Action</th>
+				                        </tr>
+				                    </thead>
+				                    <tbody>
+				                        				                    </tbody>
+				                </table>
+				         
+							
+							<h5 class="mb-3 text-uppercase bg-light p-2"><i class="mdi mdi-office-building mr-1"></i> User Info</h5>
+                            <h5 class="mb-3 text-uppercase bg-light p-2"><i class="mdi mdi-office-building mr-1"></i> Radius Acct</h5>
+                          
+ <!-- end about me 
+
+                            <h5 class="mb-3 text-uppercase bg-light p-2"><i class="mdi mdi-office-building mr-1"></i> Network Info</h5>
+section content -->
+                        </div>
+
+                                        </div>
+                                        <!-- end timeline content-->
+
+                                        <div class="tab-pane" id="settings">
+                                             <form method="post">
+                                                <h5 class="mb-4 text-uppercase"><i class="mdi mdi-account-circle mr-1"></i> Personal Info</h5>
+                                                												
+												<input type="hidden" class="form-control" name="id_pelanggan" value="9124">
+												<input type="hidden" class="form-control" name="phone1_pelanggan_lama" value="6281335352990">
+												<input type="hidden" class="form-control" name="nama_lama" value="SUGENG NIFTAH (KTN)">
+												<input type="hidden" name="alamat_lama" value="DSN.JARANGUYANG DS.BATANGSAREN KEC.KAUMAN KAB.TULUNGAGUNG">
+												<input type="hidden" name="coordinat_lama" value="-8.052798,111.881467">
+												
+												<div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="firstname">First Name</label>
+                                                            <input type="text" class="form-control" name="nama" placeholder="Enter first name" value="SUGENG NIFTAH (KTN)">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="lastname">NIK</label>
+                                                            <input type="text" class="form-control" name="nik" value="3504010707740002" readonly>
+                                                        </div>
+                                                    </div> <!-- end col -->
+                                                </div> <!-- end row -->
+
+                                                <div class="row">
+                                                    <div class="col-12">
+                                                        <div class="form-group">
+                                                            <label for="userbio">Address</label>
+                                                            <textarea class="form-control" name="alamat" rows="2" readonly>DSN.JARANGUYANG DS.BATANGSAREN KEC.KAUMAN KAB.TULUNGAGUNG</textarea>
+                                                        </div>
+                                                    </div> <!-- end col -->
+                                                </div> <!-- end row -->
+
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="useremail">Coordinat(-81446003, 1117973122)</label>
+                                                            <input type="text" class="form-control" name="coordinat" value="-8.052798,111.881467">
+                                                            
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="userpassword">Phone (Awali dengan kode negara ex : 6285655548909)</label>
+                                                            <input type="text" class="form-control" name="phone" value="6281335352990">
+                                                           
+                                                        </div>
+                                                    </div> <!-- end col -->
+                                                </div> <!-- end row -->
+												
+												<div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="useremail">Username</label>
+                                                            <input type="text" class="form-control" name="username" value="sugeng_niftah_(ktn)@lexxadata.co.id">
+                                                            
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label for="userpassword">Password</label>
+                                                            <input type="text" class="form-control" name="password" value="XJHRKWZGHT">
+                                                           
+                                                        </div>
+                                                    </div> <!-- end col -->
+                                                </div> <!-- end row -->
+
+                                                
+                                                                                               
+												
+												<div class="text-right">
+                                                    <button type="submit" name="edit_data" class="btn btn-success waves-effect waves-light mt-2"><i class="mdi mdi-content-save" ></i> Save</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                        <!-- end settings content-->
+
+                                    </div> <!-- end tab-content -->
+                                </div> <!-- end card-box-->
+
+                            </div> <!-- end col -->                        
+						</div>
+                        <!-- end row-->
+
+                    </div> <!-- container -->
+					
+					
+					
+					
+					            </div> <!-- content -->
+
+            <!-- Footer Start -->
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-md-6">
+                            2015 - <script>
+                            document.write(new Date().getFullYear())
+                            </script> &copy; UBold theme by <a href="">Coderthemes</a>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-md-right footer-links d-none d-sm-block">
+                                <a href="javascript:void(0);">About Us</a>
+                                <a href="javascript:void(0);">Help</a>
+                                <a href="javascript:void(0);">Contact Us</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+            <!-- end Footer -->
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- End Page content -->
+        <!-- ============================================================== -->
+
+
+    </div>
+    <!-- END wrapper -->
+
+    <!-- Right bar overlay-->
+    <div class="rightbar-overlay"></div>
+    <!-- Vendor js -->
+    <script src="../../assets/js/vendor.min.js"></script>
+    <script src="../../assets/libs/apexcharts/apexcharts.min.js"></script>
+    <script src="../../assets/libs/selectize/js/standalone/selectize.min.js"></script>
+
+    <!-- App js-->
+    <script src="../../assets/js/app.min.js"></script>
+    <!-- 
+    <script src="../../assets/js/pages/datatables.init.js"></script>
+	  -->
+    <script src="../../assets/js/pages/bootstrap-tables.init.js"></script>
+    <script src="../../assets/libs/bootstrap-table/bootstrap-table.min.js"></script>
+
+    <!-- third party js -->
+    <script src="../../assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
+    <script src="../../assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+    <script src="../../assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js"></script>
+    <script src="../../assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js"></script>
+
+    <!-- Plugins js-->
+	
+    <script src="../../assets/libs/flatpickr/flatpickr.min.js"></script>
+    <script src="../../assets/libs/bootstrap-datepicker/js/bootstrap-datepicker.min.js"></script>
+
+    <script src="../../assets/js/app.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js"
+        integrity="sha512-Y5MDU6RaF5h5HE5BgqJlKkV12kbkbIgWHutcT+XHHNOUzr+HHjWZGC02sqEguuPglmFms3cc08WH2PhQ5rF8Cw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- Tost-->
+    <script src="../../assets/libs/jquery-toast-plugin/jquery.toast.min.js"></script>
+
+
+
+
+    <script>
+    $(document).ready(
+        function() {
+            var connectionOptions = {
+                "force new connection": true,
+                "reconnectionAttempts": "Infinity",
+                "timeout": 1000,
+                "transports": ["websocket"]
+            }
+
+            var socket1 = io.connect('https://nms.lexxadata.net.id:3000/', connectionOptions)
+            socket1.on('log_non_physic_ticket', function(msg2) {
+
+                ! function(p) {
+                    "use strict";
+
+                    function t() {}
+                    t.prototype.send = function(t, i, o, e, n, a, s, r) {
+                        var c = {
+                            heading: t,
+                            text: i,
+                            position: o,
+                            loaderBg: e,
+                            icon: n,
+                            hideAfter: 5000,
+                            stack: s = s || 1
+                        };
+                        r && (c.showHideTransition = r), p.toast().reset("all"), p.toast(c)
+                    }, p.NotificationApp = new t, p.NotificationApp.Constructor = t
+                }(window.jQuery),
+                function(i) {
+                    "use strict";
+                    if (msg2.nama_server == "Lexxa Net") {
+                        if (msg2.status == 'FORWARD TO NOC') {
+                            i.NotificationApp.send("Forward Ticket " + msg2.ticket_reference + "",
+                                "Name : " + msg2.nama + "</p>Priority : " + msg2.priority +
+                                "</p>Cause : " + msg2.deskripsi + "</p>By CS: " + msg2.nama_exekutor +
+                                "</p>", "top-right", "#bf441d", "error")
+                        } else if (msg2.status == 'PROCESSED BY NOC') {
+                            i.NotificationApp.send("Proses Ticket " + msg2.ticket_reference + "",
+                                "Name : " + msg2.nama + "</p>Action : " + msg2.deskripsi +
+                                "</p>By NOC : " + msg2.nama_exekutor + "</p> ", "top-right", "#1ea69a",
+                                "info")
+                        } else if (msg2.status == 'FORWARD TO TECHNICIAN') {
+                            i.NotificationApp.send("Forward Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By NOC : " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#1ea69a", "info")
+                        } else if (msg2.status == 'PROCESSED BY TECHNICIAN') {
+                            i.NotificationApp.send("Proses Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By TN: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#1ea69a", "info")
+                        } else if (msg2.status == 'CLOSED BY NOC') {
+                            i.NotificationApp.send("Hold Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By NOC: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#da8609", "warning")
+
+
+                        } else if (msg2.status == 'CLOSED BY TECHNICIAN') {
+
+
+                            i.NotificationApp.send("Hold Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By TN: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#da8609", "warning")
+
+
+                        } else if (msg2.status == 'CLOSED BY CS') {
+
+
+                            i.NotificationApp.send("Closed Ticket " + msg2.ticket_reference + "", "" + msg2
+                                .nama + "</p>Action : " + msg2.deskripsi + "</p>By CS: " + msg2
+                                .nama_exekutor + "</p> ", "top-right", "#5ba035", "success")
+
+
+                        }
+
+
+                    }
+                    console.log('ticket non', msg2);
+
+                }(window.jQuery);
+            });
+
+
+
+
+
+
+            $("#tickets-gangguan").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+				ordering:false,
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [3, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+
+
+
+            $("#tickets-gangguan1").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [2, "desc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+            $("#tickets-note").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> Ticket'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [3, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+
+            $("#tickets-table").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 10,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [6, "desc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+        });
+
+
+    $(document).ready(
+        function() {
+            "use strict";
+
+
+            $("#data_user2").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [4, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+            $("#data_phonebook").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [4, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+
+
+
+        });
+
+
+    $(document).ready(
+        function() {
+            "use strict";
+            $("#type_ticket").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                columns: [{
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+
+                    {
+                        orderable: !1
+                    }
+                ],
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [0, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+        });
+
+   
+
+ $(document).ready(
+ function(){"use strict";
+ $("#invoice_perbaikan").DataTable({language:{paginate:{previous:"<i class='mdi mdi-chevron-left'>",
+ next:"<i class='mdi mdi-chevron-right'>"},info:"Showing customers _START_ to _END_ of _TOTAL_",
+ lengthMenu:'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'},
+ pageLength:5,
+ columns:[
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!0},
+ {orderable:!1}],select:{style:"multi"},order:[[0,"desc"]],drawCallback:function(){$(".dataTables_paginate > .pagination").addClass("pagination-rounded")}})});
+
+
+ $(document).ready(
+ function(){"use strict";
+ $("#ticket_migrasi").DataTable({language:{paginate:{previous:"<i class='mdi mdi-chevron-left'>",
+ next:"<i class='mdi mdi-chevron-right'>"},info:"Showing _START_ to _END_ of _TOTAL_",
+ lengthMenu:'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select>'},
+ pageLength:5,
+ select:{style:"multi"},order:[[0,"desc"]],drawCallback:function(){$(".dataTables_paginate > .pagination").addClass("pagination-rounded")}})});
+ 
+
+
+
+   $(document).ready(
+        function() {
+            "use strict";
+            $("#data_cs").DataTable({
+                language: {
+                    paginate: {
+                        previous: "<i class='mdi mdi-chevron-left'>",
+                        next: "<i class='mdi mdi-chevron-right'>"
+                    },
+                    info: "Showing customers _START_ to _END_ of _TOTAL_",
+                    lengthMenu: 'Display <select class=\'custom-select custom-select-sm ml-1 mr-1\'><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="-1">All</option></select> customers'
+                },
+                pageLength: 5,
+                columns: [{
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+                    {
+                        orderable: !0
+                    },
+
+                    {
+                        orderable: !1
+                    }
+                ],
+                select: {
+                    style: "multi"
+                },
+                order: [
+                    [0, "asc"]
+                ],
+                drawCallback: function() {
+                    $(".dataTables_paginate > .pagination").addClass("pagination-rounded")
+                }
+            })
+        });
+    </script>
+   
+
+</body>
+
+</html>

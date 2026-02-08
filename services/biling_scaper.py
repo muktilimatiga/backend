@@ -72,25 +72,196 @@ class BillingScraper:
         except requests.RequestException:
             return False
 
+    def _solve_captcha(self, captcha_url: str) -> Optional[str]:
+        """
+        Download CAPTCHA image and solve it using direct OCR function import.
+        
+        Args:
+            captcha_url: URL of the CAPTCHA image (e.g., 'captcha.php')
+        
+        Returns:
+            Extracted CAPTCHA text, or None if failed
+        """
+        try:
+            print(f"[BillingScraper] 🔍 Starting CAPTCHA solve from: {captcha_url}")
+            
+            # Import OCR function directly (avoids HTTP call to same process)
+            from api.v1.endpoints.ocr import _process_image_ocr
+            
+            # Step 1: Download CAPTCHA image using the same session (to maintain cookies)
+            print(f"[BillingScraper] 📥 Downloading CAPTCHA image...")
+            captcha_response = self.session.get(
+                captcha_url, verify=False, timeout=10
+            )
+            captcha_response.raise_for_status()
+            captcha_bytes = captcha_response.content
+            
+            print(f"[BillingScraper] ✅ Downloaded {len(captcha_bytes)} bytes (Content-Type: {captcha_response.headers.get('Content-Type')})")
+            
+            # Save CAPTCHA image for debugging
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            debug_filename = f"captcha_debug_{timestamp}.png"
+            with open(debug_filename, "wb") as f:
+                f.write(captcha_bytes)
+            print(f"[BillingScraper] 💾 Saved CAPTCHA to: {debug_filename}")
+            
+            # Step 2: Process image directly with OCR function
+            print(f"[BillingScraper] 🤖 Processing image with OCR...")
+            captcha_text = _process_image_ocr(captcha_bytes)
+            
+            print(f"[BillingScraper] 📝 OCR raw output: '{captcha_text}' (length: {len(captcha_text) if captcha_text else 0})")
+            
+            if captcha_text and captcha_text.strip():
+                cleaned = captcha_text.strip()
+                
+                # Step 3: Check if CAPTCHA is a math expression and evaluate it
+                math_answer = self._evaluate_math_captcha(cleaned)
+                
+                if math_answer is not None:
+                    print(f"[BillingScraper] 🧮 Math expression detected: '{cleaned}' = {math_answer}")
+                    return str(math_answer)
+                else:
+                    print(f"[BillingScraper] ✅ CAPTCHA text (non-math): '{cleaned}'")
+                    return cleaned
+            else:
+                print("[BillingScraper] ⚠️ OCR returned empty text - CAPTCHA not recognized")
+                return None
+                
+        except Exception as e:
+            import traceback
+            print(f"[BillingScraper] ❌ CAPTCHA solving failed with error: {e}")
+            print(f"[BillingScraper] 📋 Traceback:\n{traceback.format_exc()}")
+            return None
+
+    @staticmethod
+    def _evaluate_math_captcha(text: str) -> Optional[int]:
+        """
+        Evaluate if CAPTCHA text is a math expression and return the answer.
+        
+        Args:
+            text: CAPTCHA text (e.g., "10 - 2", "5 + 3", "6 * 2")
+        
+        Returns:
+            Integer result if valid math expression, None otherwise
+        """
+        try:
+            # Remove all whitespace for easier parsing
+            clean = text.replace(" ", "").replace("=", "").replace("?", "")
+            
+            # Check if it matches a simple math pattern: number operator number
+            # Supports: +, -, *, /, x (as multiplication)
+            math_pattern = r'^(\d+)\s*([+\-*/x×])\s*(\d+)$'
+            match = re.match(math_pattern, clean, re.IGNORECASE)
+            
+            if match:
+                num1 = int(match.group(1))
+                operator = match.group(2).lower()
+                num2 = int(match.group(3))
+                
+                # Map operators
+                if operator == '+':
+                    result = num1 + num2
+                elif operator == '-':
+                    result = num1 - num2
+                elif operator in ['*', 'x', '×']:
+                    result = num1 * num2
+                elif operator == '/':
+                    result = num1 // num2  # Integer division
+                else:
+                    return None
+                
+                return int(result)
+            
+            return None
+            
+        except Exception as e:
+            print(f"[BillingScraper] ⚠️ Math evaluation failed: {e}")
+            return None
+
     def _login(self):
         if self._load_cookies() and self._is_logged():
+            print("[BillingScraper] 🔐 Already logged in (using saved cookies)")
             return
 
-        payload = {
-            "username": settings.NMS_USERNAME_BILING,
-            "password": settings.NMS_PASSWORD_BILING,
-        }
-        try:
-            r = self.session.post(
-                self.login_url, data=payload, verify=False, timeout=10
-            )
-            if r.status_code not in (200, 302) or "login" in r.url.lower():
-                raise ConnectionError(
-                    f"Billing login failed. Check BILLING credentials and LOGIN_URL_BILLING."
+        print(f"[BillingScraper] 🚀 Starting login process to: {self.login_url}")
+        
+        # Extract base URL from login_url for constructing CAPTCHA URL
+        from urllib.parse import urljoin
+        
+        # Construct CAPTCHA URL (assuming it's in the same directory as login page)
+        captcha_url = urljoin(self.login_url, "captcha.php")
+        print(f"[BillingScraper] 🔗 CAPTCHA URL: {captcha_url}")
+        
+        # Try login with CAPTCHA solving (with retries)
+        max_attempts = 3
+        last_error = None
+        
+        for attempt in range(max_attempts):
+            print(f"\n[BillingScraper] 🔄 Login attempt {attempt + 1}/{max_attempts}")
+            
+            try:
+                # Solve CAPTCHA
+                captcha_text = self._solve_captcha(captcha_url)
+                
+                if not captcha_text:
+                    print(f"[BillingScraper] ⚠️ CAPTCHA solve failed (attempt {attempt + 1}/{max_attempts})")
+                    if attempt < max_attempts - 1:
+                        print(f"[BillingScraper] ⏳ Waiting 1 second before retry...")
+                        time.sleep(1)  # Brief pause before retry
+                        continue
+                    else:
+                        raise ConnectionError("Failed to solve CAPTCHA after multiple attempts")
+                
+                # Prepare login payload with CAPTCHA
+                payload = {
+                    "username": settings.NMS_USERNAME_BILING,
+                    "password": settings.NMS_PASSWORD_BILING,
+                    "captcha": captcha_text,  # Add CAPTCHA field
+                }
+                
+                print(f"[BillingScraper] 📤 Submitting login with:")
+                print(f"  - Username: {settings.NMS_USERNAME_BILING}")
+                print(f"  - Password: {'*' * len(settings.NMS_PASSWORD_BILING)}")
+                print(f"  - CAPTCHA: {captcha_text}")
+                
+                # Submit login
+                r = self.session.post(
+                    self.login_url, data=payload, verify=False, timeout=10
                 )
-            self._save_cookies()
-        except requests.RequestException as e:
-            raise ConnectionError(f"Failed to connect to billing login page: {e}")
+                
+                print(f"[BillingScraper] 📨 Login response: Status {r.status_code}, URL: {r.url}")
+                
+                # Check if login was successful
+                if r.status_code not in (200, 302):
+                    print(f"[BillingScraper] ❌ Bad status code: {r.status_code}")
+                elif "login" in r.url.lower():
+                    print(f"[BillingScraper] ❌ Still on login page - authentication failed (wrong CAPTCHA or credentials)")
+                    if attempt < max_attempts - 1:
+                        print(f"[BillingScraper] ⏳ Waiting 1 second before retry...")
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise ConnectionError(
+                            f"Billing login failed. Check BILLING credentials and LOGIN_URL_BILLING."
+                        )
+                else:
+                    # Success!
+                    print(f"[BillingScraper] ✅ Login successful with CAPTCHA!")
+                    print(f"[BillingScraper] 💾 Saving session cookies...")
+                    self._save_cookies()
+                    return
+                
+            except requests.RequestException as e:
+                last_error = e
+                print(f"[BillingScraper] ❌ Request error (attempt {attempt + 1}/{max_attempts}): {e}")
+                if attempt < max_attempts - 1:
+                    print(f"[BillingScraper] ⏳ Waiting 1 second before retry...")
+                    time.sleep(1)
+                    continue
+        
+        # If we get here, all attempts failed
+        print(f"[BillingScraper] 💀 All {max_attempts} login attempts failed")
+        raise ConnectionError(f"Failed to connect to billing login page: {last_error}")
 
     @staticmethod
     def _parse_month_year(
