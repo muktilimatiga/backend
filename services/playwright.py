@@ -7,8 +7,10 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import time
 import requests
 from bs4 import BeautifulSoup
+from api.v1.endpoints.ocr import _process_image_ocr as ocr
 from schemas.customers_scrapper import (
     Customer,
     TicketItem,
@@ -38,7 +40,9 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-LOGIN_URL = settings.LOGIN_URL
+
+
+LOGIN_URL = settings.LOGIN_URL_BILLING
 DASHBOARD_URL_GLOB = "**/billing2/**"  # pattern for dashboard after login
 INVOICES_URL = settings.DETAIL_URL_BILLING
 TICKET_URL = settings.TICKET_NOC_URL
@@ -55,6 +59,45 @@ password_noc = settings.NMS_PASSWORD
 SESSION_DIR = Path(__file__).parent / "sessions"
 SESSION_CS_FILE = SESSION_DIR / "session_cs.json"
 SESSION_NOC_FILE = SESSION_DIR / "session_noc.json"
+
+
+def _evaluate_math_captcha(text: str) -> Optional[int]:
+    """
+    Evaluate if CAPTCHA text is a math expression and return the answer.
+    """
+    try:
+        # Remove all whitespace for easier parsing
+        clean = text.replace(" ", "").replace("=", "").replace("?", "")
+        
+        # Check if it matches a simple math pattern: number operator number
+        # Supports: +, -, *, /, x (as multiplication)
+        math_pattern = r'^(\d+)\s*([+\-*/x×])\s*(\d+)$'
+        match = re.search(math_pattern, clean, re.IGNORECASE)
+        
+        if match:
+            num1 = int(match.group(1))
+            operator = match.group(2).lower()
+            num2 = int(match.group(3))
+            
+            # Map operators
+            if operator == '+':
+                result = num1 + num2
+            elif operator == '-':
+                result = num1 - num2
+            elif operator in ['*', 'x', '×']:
+                result = num1 * num2
+            elif operator == '/':
+                result = num1 // num2  # Integer division
+            else:
+                return None
+            
+            return int(result)
+        
+        return None
+        
+    except Exception as e:
+        print(f"⚠️ Math evaluation failed: {e}")
+        return None
 
 # Thread pool for running sync playwright in async context
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -79,6 +122,7 @@ class CustomerService:
         self.context = None
         self.page = None
         self.session_file = SESSION_CS_FILE
+        self._logged_in = False
 
     def start(self, headless: bool = True):
         """Start browser (sync). Call this first."""
@@ -118,13 +162,21 @@ class CustomerService:
             self.playwright.stop()
 
     def is_logged_in(self) -> bool:
-        """Check if already logged in by navigating to dashboard."""
-        try:
-            self.page.goto(LOGIN_URL, wait_until="domcontentloaded")
-            self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=3000)
-            logging.info("Already logged in (session restored)")
+        """Check if already logged in by trying to access a protected page."""
+        if self._logged_in:
             return True
-        except PWTimeoutError:
+        try:
+            # Try accessing a protected page directly
+            self.page.goto(LOGIN_URL.replace('login', ''), wait_until="domcontentloaded", timeout=5000)
+            
+            # If we're NOT on the login page, session is valid
+            current_url = self.page.url.lower()
+            if "login" not in current_url and "billing2" in current_url:
+                logging.info("Already logged in (session restored)")
+                self._logged_in = True
+                return True
+            return False
+        except Exception:
             return False
 
     def login(self) -> bool:
@@ -132,35 +184,89 @@ class CustomerService:
         if not self.page:
             raise RuntimeError("Call start() first")
 
-        # Check if already logged in from saved session
+        # Skip if already logged in this session
+        if self._logged_in:
+            return True
+
+        # Check if saved session is still valid
         if self.is_logged_in():
             return True
 
         self.page.goto(LOGIN_URL, wait_until="domcontentloaded")
         logging.info("Going to Login Page")
 
-        self.page.get_by_placeholder("Username").fill(self.username)
-        logging.info("Username filled")
-        self.page.get_by_placeholder("Password").fill(self.password)
-        logging.info("Password filled")
-        self.page.get_by_role("button", name="Sign In").click()
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            logging.info(f"Login attempt {attempt + 1}/{max_attempts}")
+            
+            # Check for CAPTCHA image
+            captcha_img = self.page.locator('img[src*="captcha.php"]').first
+            captcha_input = self.page.locator('input[name="captcha"]').first
+            
+            captcha_text = None
+            
+            if captcha_img.count() > 0 and captcha_img.is_visible():
+                logging.info("CAPTCHA detected, solving...")
+                try:
+                    # Take screenshot of the CAPTCHA element
+                    captcha_bytes = captcha_img.screenshot()
+                    
+                    # Solve using OCR
+                    ocr_text = ocr(captcha_bytes)
+                    logging.info(f"OCR Result: '{ocr_text}'")
+                    
+                    if ocr_text:
+                        # Check for math expression
+                        math_answer = _evaluate_math_captcha(ocr_text)
+                        
+                        if math_answer is not None:
+                            captcha_text = str(math_answer)
+                            logging.info(f"Math solution: {captcha_text}")
+                        else:
+                            captcha_text = ocr_text.strip()
+                            logging.info(f"CAPTCHA text: {captcha_text}")
+                            
+                        # Fill CAPTCHA field
+                        if captcha_input.count() > 0:
+                            captcha_input.fill(captcha_text)
+                except Exception as e:
+                    logging.error(f"Error solving CAPTCHA: {e}")
 
-        try:
-            self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=15_000)
-            # Save session after successful login
-            self.save_session()
-            return True
-        except PWTimeoutError:
-            err = self.page.get_by_text("Invalid username or password")
-            if err.is_visible():
-                raise ValueError("Invalid username or password")
-            raise
+            self.page.get_by_placeholder("Username").fill(self.username)
+            logging.info("Username filled")
+            self.page.get_by_placeholder("Password").fill(self.password)
+            logging.info("Password filled")
+            self.page.get_by_role("button", name="Sign In").click()
+
+            try:
+                self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=5000)
+                # Save session after successful login
+                self.save_session()
+                self._logged_in = True
+                logging.info("Login successful")
+                return True
+            except PWTimeoutError:
+                err = self.page.get_by_text("Invalid username or password")
+                if err.is_visible():
+                    raise ValueError("Invalid username or password")
+                
+                # If we are still on login page, it's likely a temporary failure or CAPTCHA mismatch
+                if "login" in self.page.url.lower():
+                    logging.warning("Login failed (likely CAPTCHA), retrying...")
+                    if attempt < max_attempts - 1:
+                        time.sleep(1)
+                        # Reload page to get new CAPTCHA
+                        self.page.reload() 
+                        continue
+                    else:
+                        logging.error("Max login attempts reached")
+        
+        raise ValueError("Login failed after multiple attempts")
 
     def search_user(self, query: str):
-        """Search for customers by name or number."""
-        ok = self.login()
-        if not ok:
-            return None
+        """Search for customers by name or number.
+        Note: Caller must ensure login() has been called first.
+        """
 
         field = self.page.get_by_placeholder("Name Or No Internet")
         field.fill(query)
@@ -174,32 +280,40 @@ class CustomerService:
         """Get invoice data for a customer.
 
         Args:
-            query: Internet number to search for (slower - requires search first)
-            customer_id: Encoded customer ID for direct URL access (faster)
+            query: Internet number to search for
+            customer_id: Customer ID to search for
         """
         ok = self.login()
         if not ok:
             return None
 
-        if customer_id:
-            # Direct navigation using customer ID (fast)
-            detail_url = INVOICES_URL.format(id=customer_id)
-            logging.info(f"Going directly to: {detail_url}")
-            self.page.goto(detail_url, wait_until="networkidle")
-        elif query:
-            # Search first, then click detail (slower)
-            self.search_user(query)
+        # Use customer_id or query as search term
+        search_term = customer_id or query
+        if not search_term:
+            logging.error("Either query or customer_id must be provided")
+            return None
 
-            # Click on Detail User dropdown link to go to invoices page
-            detail_link = self.page.locator("a.dropdown-item[href*='deusr']").first
-            if detail_link.count() > 0:
-                detail_link.click()
-                self.page.wait_for_load_state("networkidle")
+        # Search for the user first
+        logging.info(f"Searching for: {search_term}")
+        self.search_user(search_term)
+
+        # Get the Detail User link href and navigate to it
+        # (the link is inside a hidden dropdown menu, so we extract the href directly)
+        detail_link = self.page.locator("a.dropdown-item[href*='deusr']").first
+        if detail_link.count() > 0:
+            href = detail_link.get_attribute("href")
+            if href:
+                # Build full URL from relative href
+                base_url = self.page.url.rsplit("/", 1)[0]
+                detail_url = f"{base_url}/{href}" if not href.startswith("http") else href
+                logging.info(f"Navigating to Detail User: {detail_url}")
+                self.page.goto(detail_url, wait_until="networkidle")
+                logging.info("Navigated to Detail User page")
             else:
-                logging.error(f"Could not find Detail User link for query: {query}")
+                logging.error("Detail User link has no href")
                 return None
         else:
-            logging.error("Either query or customer_id must be provided")
+            logging.error(f"Could not find Detail User link for: {search_term}")
             return None
 
         # Helper to extract profile values
@@ -400,6 +514,7 @@ class NOC:
         self.context = None
         self.page = None
         self.session_file = SESSION_NOC_FILE
+        self._logged_in = False
 
     def start(self, headless: bool = True):
         SESSION_DIR.mkdir(exist_ok=True)
@@ -434,50 +549,209 @@ class NOC:
             self.playwright.stop()
 
     def is_logged_in(self) -> bool:
-        try:
-            self.page.goto(LOGIN_URL, wait_until="domcontentloaded")
-            self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=3000)
-            logging.info("Already logged in (NOC session restored)")
+        if self._logged_in:
             return True
-        except PWTimeoutError:
+        try:
+            # Check NOC session by going to PSB data page
+            self.page.goto(DATA_PSB_URL, wait_until="domcontentloaded", timeout=5000)
+            
+            current_url = self.page.url.lower()
+            
+            # Check for login redirection
+            if "login" in current_url:
+                return False
+
+            # Check for specific element that confirms we are logged in
+            # The PSB table should be visible if we are at DATA_PSB_URL and logged in
+            try:
+                self.page.wait_for_selector("#tickets-note", timeout=3000)
+                logging.info("Already logged in (NOC session restored)")
+                self._logged_in = True
+                return True
+            except:
+                # If table not found, maybe we are on dashboard but not PSB page?
+                # Check for common dashboard element
+                if self.page.locator(".navbar-custom").count() > 0:
+                     logging.info("Already logged in (NOC session restored)")
+                     self._logged_in = True
+                     return True
+            
+            return False
+        except Exception:
             return False
 
     def login(self) -> bool:
         if not self.page:
             raise RuntimeError("Call start() first")
+        
+        # Skip if already logged in this session
+        if self._logged_in:
+            return True
 
+        # Check if saved session is still valid
         if self.is_logged_in():
             return True
 
         self.page.goto(LOGIN_URL, wait_until="domcontentloaded")
         logging.info("NOC: Going to Login Page")
 
-        self.page.get_by_placeholder("Username").fill(self.username)
-        logging.info("NOC: Username filled")
-        self.page.get_by_placeholder("Password").fill(self.password)
-        logging.info("NOC: Password filled")
-        self.page.get_by_role("button", name="Sign In").click()
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            logging.info(f"NOC: Login attempt {attempt + 1}/{max_attempts}")
+            
+            # Check for CAPTCHA image
+            captcha_img = self.page.locator('img[src*="captcha.php"]').first
+            captcha_input = self.page.locator('input[name="captcha"]').first
+            
+            captcha_text = None
+            
+            if captcha_img.count() > 0 and captcha_img.is_visible():
+                logging.info("NOC: CAPTCHA detected, solving...")
+                try:
+                    # Take screenshot of the CAPTCHA element
+                    captcha_bytes = captcha_img.screenshot()
+                    
+                    # Solve using OCR
+                    ocr_text = ocr(captcha_bytes)
+                    logging.info(f"NOC: OCR Result: '{ocr_text}'")
+                    
+                    if ocr_text:
+                        # Check for math expression
+                        math_answer = _evaluate_math_captcha(ocr_text)
+                        
+                        if math_answer is not None:
+                            captcha_text = str(math_answer)
+                            logging.info(f"NOC: Math solution: {captcha_text}")
+                        else:
+                            captcha_text = ocr_text.strip()
+                            logging.info(f"NOC: CAPTCHA text: {captcha_text}")
+                            
+                        # Fill CAPTCHA field
+                        if captcha_input.count() > 0:
+                            captcha_input.fill(captcha_text)
+                except Exception as e:
+                    logging.error(f"NOC: Error solving CAPTCHA: {e}")
 
-        try:
-            self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=15_000)
-            self.save_session()
-            return True
-        except PWTimeoutError:
-            err = self.page.get_by_text("Invalid username or password")
-            if err.is_visible():
-                raise ValueError("Invalid username or password")
-            raise
+            # Fill credentials
+            self.page.get_by_placeholder("Username").fill(self.username)
+            logging.info("NOC: Username filled")
+            self.page.get_by_placeholder("Password").fill(self.password)
+            logging.info("NOC: Password filled")
+            
+            # Click sign in
+            self.page.get_by_role("button", name="Sign In").click()
+
+            try:
+                # Wait for either success (dashboard) or failure
+                self.page.wait_for_url(DASHBOARD_URL_GLOB, timeout=5000)
+                self.save_session()
+                self._logged_in = True
+                logging.info("NOC: Login successful")
+                return True
+                
+            except PWTimeoutError:
+                # Check for specific error messages
+                err_msg = self.page.locator("text=Invalid username or password")
+                if err_msg.count() > 0 and err_msg.is_visible():
+                    raise ValueError("Invalid username or password")
+                
+                # If we are still on login page, it's likely a temporary failure or CAPTCHA mismatch
+                if "login" in self.page.url.lower():
+                    logging.warning("NOC: Login failed (likely CAPTCHA), retrying...")
+                    if attempt < max_attempts - 1:
+                        time.sleep(1)
+                        # Reload page to get new CAPTCHA
+                        self.page.reload() 
+                        continue
+                    else:
+                        logging.error("NOC: Max login attempts reached")
+                        
+        raise ValueError("Login failed after multiple attempts")
 
     def process_ticket(self, nama_pelanggan: str, action: str):
         self.page.goto(LOGIN_URL, wait_until="domcontentloaded")
         # TODO: Implement ticket processing logic
         pass
 
-    def get_data_psb(self):
+    def get_data_psb(self) -> list:
+        """Get PSB (Pemasangan Baru) data from the NOC dashboard.
+        
+        Returns:
+            List of dicts with keys: name, address, username, password, package
+        """
         self.login()
-        self.page.goto(DATA_PSB_URL, wait_until="domcontentloaded")
-        # TODO: Implement PSB data extraction
-        pass
+        self.page.goto(DATA_PSB_URL, wait_until="networkidle")
+        logging.info("Navigated to PSB data page")
+
+        # Wait for the table to load
+        table = self.page.locator("#tickets-note")
+        table.wait_for(state="visible", timeout=10_000)
+
+        results = []
+        rows = table.locator("tbody tr")
+        row_count = rows.count()
+        logging.info(f"Found {row_count} PSB rows")
+
+        for i in range(row_count):
+            row = rows.nth(i)
+            cells = row.locator("td")
+
+            try:
+                name = cells.nth(0).inner_text().strip()
+                address = cells.nth(1).inner_text().strip()
+                username = cells.nth(3).inner_text().strip()
+                password = cells.nth(4).inner_text().strip()
+
+                # Open the detail modal to get Framed-Pool (package)
+                package = ""
+                try:
+                    # Click the dropdown toggle in the Action column
+                    dropdown_toggle = row.locator("a.dropdown-toggle").first
+                    dropdown_toggle.click()
+                    
+                    # Click the Details link
+                    details_link = row.locator("a.dropdown-item:has-text('Details')").first
+                    details_link.wait_for(state="visible", timeout=3000)
+                    details_link.click()
+                    
+                    # Wait for modal to appear
+                    modal = self.page.locator(".modal.show .modal-body")
+                    modal.wait_for(state="visible", timeout=5000)
+                    
+                    # Extract Framed-Pool value from modal text
+                    modal_text = modal.inner_text()
+                    for line in modal_text.split("\n"):
+                        if "Framed-Pool" in line:
+                            # Parse: "Framed-Pool   =   CIGNAL 25M (RP 125.000)"
+                            parts = line.split("=", 1)
+                            if len(parts) == 2:
+                                package = parts[1].strip()
+                            break
+                    
+                    logging.info(f"Row {i} package: {package}")
+                    
+                    # Close the modal
+                    close_btn = self.page.locator(".modal.show button[data-dismiss='modal']").first
+                    if close_btn.count() > 0:
+                        close_btn.click()
+                        self.page.wait_for_timeout(500)
+                        
+                except Exception as e:
+                    logging.warning(f"Failed to get package for row {i}: {e}")
+
+                results.append({
+                    "name": name,
+                    "address": address,
+                    "username": username,
+                    "password": password,
+                    "package": package,
+                })
+            except Exception as e:
+                logging.warning(f"Failed to parse PSB row {i}: {e}")
+                continue
+
+        logging.info(f"Extracted {len(results)} PSB records")
+        return results
 
 
 # Convenience functions for running sync methods from async endpoints
@@ -516,7 +790,7 @@ def get_customer_details_sync(
     service = CustomerService()
     try:
         service.start(headless=headless)
-        return service.get_customer_details(customer_id)
+        return service.get_invoices(customer_id=customer_id)
     finally:
         service.close()
 
@@ -528,23 +802,22 @@ def get_invoice_data_sync(
     service = CustomerService()
     try:
         service.start(headless=headless)
-        return service.get_invoice_data(customer_id)
+        return service.get_invoices(customer_id=customer_id)
     finally:
         service.close()
 
 
 if __name__ == "__main__":
     # Test sync version
-    service = CustomerService()
+    service = NOC()
     try:
         service.start(headless=False)
 
         # Fast method: use encoded customer ID directly
         # Example ID from the detail URL
         print("=== Testing FAST method (direct customer_id) ===")
-        invoices = service.get_invoices(customer_id="OTEyNC0yNzAtNTA4ODIyMDU=")
-        print("Invoice Data:", invoices)
-
+        psb_data = service.get_data_psb()
+        print(psb_data)
         # Slow method: search by internet number
         # print("=== Testing SLOW method (search query) ===")
         # invoices = service.get_invoices(query="10009124")
