@@ -807,6 +807,16 @@ def get_invoice_data_sync(
         service.close()
 
 
+def get_psb_data_sync(headless: bool = True) -> list:
+    """Get PSB data (for use with run_sync)."""
+    noc = NOC()
+    try:
+        noc.start(headless=headless)
+        return noc.get_data_psb()
+    finally:
+        noc.close()
+
+
 if __name__ == "__main__":
     # Test sync version
     service = NOC()

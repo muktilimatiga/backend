@@ -54,8 +54,21 @@ def get_noc() -> NOC:
 
 # Endpoint show psb avaible
 @router.get("/psb", response_model=List[DataPSB])
-def get_psb_data(scraper: NOCScrapper = Depends(get_scraper)):
-    return scraper._get_data_psb()
+async def get_psb_data():
+    from services.playwright import get_psb_data_sync, run_sync
+    
+    # Run sync playwright in thread pool
+    results = await run_sync(get_psb_data_sync, True)
+    
+    return [
+        DataPSB(
+            name=r.get("name"),
+            address=r.get("address"),
+            user_pppoe=r.get("username"),
+            pppoe_password=r.get("password"),
+            paket=r.get("package")
+        ) for r in results
+    ]
 
 
 @router.get("/customers-billing", response_model=List[Customer])
